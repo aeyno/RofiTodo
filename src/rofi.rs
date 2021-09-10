@@ -9,7 +9,7 @@ pub struct Rofi {
 impl Rofi {
     pub fn new() -> Self {
         let mut r = Rofi { rofi : Command::new("rofi") };
-        r.rofi.arg("-dmenu").arg("-no-config");
+        r.rofi.arg("-dmenu").arg("-no-config").arg("-i");
         r
     }
 
