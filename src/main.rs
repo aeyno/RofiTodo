@@ -146,7 +146,12 @@ fn load_config(config_file: &std::path::PathBuf, todos: &mut TaskList, old: &mut
         Err(e) => return Err(e.to_string())
     }
     let content = read.unwrap();
-    let parsed : HashMap<String,Vec<JsonTask>> = serde_json::from_str(&content).expect("Invalid config file");
+    let parse_result = serde_json::from_str(&content);
+    match parse_result {
+        Ok(_) => (),
+        Err(e) => return Err(format!("{} : {}", "Bad json", e.to_string()))
+    }
+    let parsed : HashMap<String,Vec<JsonTask>> = parse_result.unwrap();
 
     for i in 0..parsed["todos"].len() {
         todos.push(parsed["todos"][i].to_task());
