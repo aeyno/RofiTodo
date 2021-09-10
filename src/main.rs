@@ -21,14 +21,14 @@ struct Cli {
 
 fn show_task_menu(todos : &mut TaskList, oldlist: &mut TaskList, index: usize) -> bool {
     let mut menu =  vec![String::from("✔ mark as done"), String::from("+ edit"), String::from("+ change date")];
-    match todos.content.get(index).unwrap().date {
+    match todos.get_content().get(index).unwrap().date {
         Some(_) => menu.push(String::from("! remove date")),
         None => ()
     }
     menu.push(String::from("* cancel"));
     match Rofi::new().prompt("Edit").run(menu).unwrap().as_ref() {
         "✔ mark as done" => {
-            oldlist.push(todos.content.remove(index));
+            oldlist.push(todos.remove(index));
             true
         },
         "* cancel" => true,
@@ -37,7 +37,7 @@ fn show_task_menu(todos : &mut TaskList, oldlist: &mut TaskList, index: usize) -
             if task.eq("") {
                 return false;
             }
-            let old_task = todos.content.remove(index);
+            let old_task = todos.remove(index);
             match old_task.date {
                 Some(date) => {
                     todos.push(Task::new_with_date(task, date))
@@ -49,7 +49,7 @@ fn show_task_menu(todos : &mut TaskList, oldlist: &mut TaskList, index: usize) -
         "+ change date" => {
             match date_selector() {
                 Some(date) => {
-                    let old_task = todos.content.remove(index);
+                    let old_task = todos.remove(index);
                     todos.push(Task::new_with_date(old_task.name, date))
                 },
                 None => ()
@@ -57,7 +57,7 @@ fn show_task_menu(todos : &mut TaskList, oldlist: &mut TaskList, index: usize) -
             true
         },
         "! remove date" => {
-            let old_task = todos.content.remove(index);
+            let old_task = todos.remove(index);
             todos.push(Task::new(old_task.name));            
             true
         },
@@ -89,9 +89,8 @@ fn show_add_task(todos : &mut TaskList) -> bool {
 }
 
 fn show_old_menu(oldlist: &mut TaskList) -> bool {
-    let menu =  vec![String::from("← back"), String::from("@ exit")];
-    let mut choices = menu.clone();
-    for todo in oldlist.content.clone() {
+    let mut choices =  vec![String::from("← back"), String::from("@ exit")];
+    for todo in oldlist.get_content() {
         choices.push(todo.to_string());
     }
     match Rofi::new().prompt("Todo").run(choices).unwrap().as_ref() {
@@ -99,10 +98,10 @@ fn show_old_menu(oldlist: &mut TaskList) -> bool {
         "@ exit" => false,
         "" => false,
         s => {
-            let index = oldlist.content.iter().position(|x| x.to_string().eq(s));
+            let index = oldlist.get_content().iter().position(|x| x.to_string().eq(s));
             match index {
                 Some(i) => {
-                    oldlist.content.remove(i);
+                    oldlist.remove(i);
                 },
                 None => ()
             }
@@ -112,9 +111,8 @@ fn show_old_menu(oldlist: &mut TaskList) -> bool {
 }
 
 fn show_main_menu(todos : &mut TaskList, oldlist: &mut TaskList) -> bool {
-    let menu = vec![String::from("+ add"), String::from("~ old"), String::from("@ exit")];
-    let mut choices = menu.clone();
-    for todo in todos.content.clone() {
+    let mut choices = vec![String::from("+ add"), String::from("~ old"), String::from("@ exit")];
+    for todo in todos.get_content() {
         choices.push(todo.to_string());
     }
     match Rofi::new().prompt("Todo").run(choices).unwrap().as_ref() {
@@ -128,7 +126,7 @@ fn show_main_menu(todos : &mut TaskList, oldlist: &mut TaskList) -> bool {
         "@ exit" => false,
         "" => false,
         s => {
-            let index = todos.content.iter().position(|x| x.to_string().eq(s));
+            let index = todos.get_content().iter().position(|x| x.to_string().eq(s));
             match index {
                 Some(i) => {show_task_menu(todos, oldlist, i);},
                 None => ()
@@ -162,11 +160,11 @@ fn load_config(config_file: &std::path::PathBuf, todos: &mut TaskList, old: &mut
 fn save_config(config_file: &std::path::PathBuf, todos: &mut TaskList, old: &mut TaskList) -> Result<bool,String> {
     let mut save = HashMap::<String, Vec<JsonTask>>::new();
     save.entry(String::from("todos")).or_insert(Vec::<JsonTask>::new());
-    for todo in &todos.content {
+    for todo in todos.get_content() {
         save.entry(String::from("todos")).or_insert(Vec::<JsonTask>::new()).push(JsonTask::from(&todo));
     }
     save.entry(String::from("old")).or_insert(Vec::<JsonTask>::new());
-    for todo in &old.content {
+    for todo in old.get_content() {
         save.entry(String::from("old")).or_insert(Vec::<JsonTask>::new()).push(JsonTask::from(&todo));
     }
     let res = serde_json::to_string(&save);
