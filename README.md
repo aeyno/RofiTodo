@@ -1,5 +1,9 @@
 # **RofiTodo**
 
+![Build](https://github.com/Any0ne22/RofiTodo/actions/workflows/rust.yml/badge.svg)
+![LastCommit](https://img.shields.io/github/last-commit/Any0ne22/RofiTodo)
+![LastRelease](https://img.shields.io/github/v/release/Any0ne22/RofiTodo)
+
 A to-do list using Rofi
 
 ## **Installation**
