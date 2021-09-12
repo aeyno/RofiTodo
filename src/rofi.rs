@@ -2,6 +2,11 @@ use std::process::Command;
 use std::process::Stdio;
 use std::io::Write;
 
+pub struct RofiParams {
+    pub no_config: bool,
+    pub case_insensitive: bool
+}
+
 pub struct Rofi {
     rofi: Command,
 }
@@ -9,8 +14,19 @@ pub struct Rofi {
 impl Rofi {
     pub fn new() -> Self {
         let mut r = Rofi { rofi : Command::new("rofi") };
-        r.rofi.arg("-dmenu").arg("-no-config").arg("-i");
+        r.rofi.arg("-dmenu");
         r
+    }
+
+    pub fn from(p : &RofiParams) -> Self {
+        let mut rofi = Self::new();
+        if p.no_config {
+            rofi = rofi.no_config();
+        }
+        if p.case_insensitive {
+            rofi = rofi.case_insensitive();
+        }
+        rofi
     }
 
     pub fn run(mut self, entries: Vec<String>) -> Result<String, String> {
@@ -27,6 +43,16 @@ impl Rofi {
         let mut retour = String::from_utf8(proc.wait_with_output().unwrap().stdout).unwrap();
         trim_newline(&mut retour);
         Ok(retour)
+    }
+
+    pub fn no_config(mut self) -> Self {
+        self.rofi.arg("-no-config");
+        self
+    }
+
+    pub fn case_insensitive(mut self) -> Self {
+        self.rofi.arg("-i");
+        self
     }
 
     pub fn prompt(mut self, p: &str) -> Self {

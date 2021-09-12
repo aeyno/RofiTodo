@@ -29,10 +29,44 @@ A to-do list using Rofi
 
 ## **Usage**
 
+- Print help :
+
+    ```bash
+    rofitodo -h
+    ```
+
 - Specify a tasklist-file:
 
     ```bash
     rofitodo -c path/to/your/todolist
     ```
 
-- Use a specific rofi config file:
+    or
+
+    ```bash
+    rofitodo --config path/to/your/todolist
+    ```
+
+- Do not load Rofi configuration, use default values :
+
+    ```bash
+    rofitodo --no-config
+    ```
+
+- Set filter to be case insensitive :
+
+    ```bash
+    rofitodo -i
+    ```
+
+    or
+
+    ```bash
+    rofitodo --case-insensitive
+    ```
+
+- Print version :
+
+    ```bash
+    rofitodo -V
+    ```

@@ -1,5 +1,5 @@
 mod rofi;
-use rofi::Rofi;
+use rofi::{Rofi, RofiParams};
 mod task;
 use task::{Task, TaskList};
 mod json_task;
@@ -16,19 +16,25 @@ use chrono::Datelike;
 
 #[derive(StructOpt)]
 struct Cli {
-    /// The path to the config file
+    /// The path to the RofiTodo config/task list file
     #[structopt(short, long, parse(from_os_str), default_value = "./rofitodo")]
     config: std::path::PathBuf,
+    /// Do not load Rofi configuration, use default values.
+    #[structopt(long = "no-config")]
+    no_config: bool,
+    /// Set filter to be case insensitive
+    #[structopt(short = "i", long = "case-insensitive")]
+    case_insensitive: bool
 }
 
-fn show_task_menu(todos : &mut TaskList, oldlist: &mut TaskList, index: usize) -> bool {
+fn show_task_menu(rofi_config : &RofiParams, todos : &mut TaskList, oldlist: &mut TaskList, index: usize) -> bool {
     let mut menu =  vec![String::from("✔ mark as done"), String::from("+ edit"), String::from("+ change date")];
     match todos.get_content().get(index).unwrap().date {
         Some(_) => menu.push(String::from("! remove date")),
         None => ()
     }
     menu.push(String::from("* cancel"));
-    match Rofi::new().prompt("Edit").run(menu).unwrap().as_ref() {
+    match Rofi::from(rofi_config).prompt("Edit").run(menu).unwrap().as_ref() {
         "✔ mark as done" => {
             oldlist.push(todos.remove(index));
             true
@@ -50,7 +56,7 @@ fn show_task_menu(todos : &mut TaskList, oldlist: &mut TaskList, index: usize) -
         },
         "+ change date" => {
             let now = Utc::now();
-            match date_selector(NaiveDate::from_ymd(now.year(), now.month(), now.day())) {
+            match date_selector(rofi_config, NaiveDate::from_ymd(now.year(), now.month(), now.day())) {
                 Some(date) => {
                     let old_task = todos.remove(index);
                     todos.push(Task::new_with_date(old_task.name, date))
@@ -68,13 +74,13 @@ fn show_task_menu(todos : &mut TaskList, oldlist: &mut TaskList, index: usize) -
     }
 }
 
-fn show_add_task(todos : &mut TaskList) -> bool {
+fn show_add_task(rofi_config : &RofiParams, todos : &mut TaskList) -> bool {
     let task = Rofi::new().prompt("Task").placeholder("").text_only().run(vec![]).unwrap();
     if task.eq("") {
         return false;
     }
     let menu =  vec![String::from("✔ validate"), String::from("+ add date"), String::from("* cancel")];
-    match Rofi::new().prompt("Edit").run(menu).unwrap().as_ref() {
+    match Rofi::from(rofi_config).prompt("Edit").run(menu).unwrap().as_ref() {
         "✔ validate" => {
             todos.push(Task::new(task));
             true
@@ -82,7 +88,7 @@ fn show_add_task(todos : &mut TaskList) -> bool {
         "* cancel" => true,
         "+ add date" => {
             let now = Utc::now();
-            match date_selector(NaiveDate::from_ymd(now.year(), now.month(), now.day())) {
+            match date_selector(rofi_config, NaiveDate::from_ymd(now.year(), now.month(), now.day())) {
                 Some(date) => todos.push(Task::new_with_date(task, date)),
                 None => ()
             }
@@ -92,12 +98,12 @@ fn show_add_task(todos : &mut TaskList) -> bool {
     }
 }
 
-fn show_old_menu(oldlist: &mut TaskList) -> bool {
+fn show_old_menu(rofi_config : &RofiParams, oldlist: &mut TaskList) -> bool {
     let mut choices =  vec![String::from("← back"), String::from("@ exit")];
     for todo in oldlist.get_content() {
         choices.push(todo.to_string());
     }
-    match Rofi::new().prompt("Todo").run(choices).unwrap().as_ref() {
+    match Rofi::from(rofi_config).prompt("Todo").run(choices).unwrap().as_ref() {
         "← back" => true,
         "@ exit" => false,
         "" => false,
@@ -114,25 +120,25 @@ fn show_old_menu(oldlist: &mut TaskList) -> bool {
     }
 }
 
-fn show_main_menu(todos : &mut TaskList, oldlist: &mut TaskList) -> bool {
+fn show_main_menu(rofi_config : &RofiParams, todos : &mut TaskList, oldlist: &mut TaskList) -> bool {
     let mut choices = vec![String::from("+ add"), String::from("~ old"), String::from("@ exit")];
     for todo in todos.get_content() {
         choices.push(todo.to_string());
     }
-    match Rofi::new().prompt("Todo").run(choices).unwrap().as_ref() {
+    match Rofi::from(rofi_config).prompt("Todo").run(choices).unwrap().as_ref() {
         "+ add" => {
-            show_add_task(todos);
+            show_add_task(rofi_config, todos);
             true
         },
         "~ old" => {
-            show_old_menu(oldlist)
+            show_old_menu(rofi_config, oldlist)
         },
         "@ exit" => false,
         "" => false,
         s => {
             let index = todos.get_content().iter().position(|x| x.to_string().eq(s));
             match index {
-                Some(i) => {show_task_menu(todos, oldlist, i);},
+                Some(i) => {show_task_menu(rofi_config, todos, oldlist, i);},
                 None => ()
             }
             true
@@ -190,6 +196,8 @@ fn main() {
 
     let args = Cli::from_args();
 
+    let rofi_config = RofiParams { no_config : args.no_config, case_insensitive : args.case_insensitive };
+
     let config = args.config;
     match load_config(&config, &mut todos, &mut old) {
         Ok(_) => (),
@@ -200,7 +208,7 @@ fn main() {
     };
 
     loop {
-        if !show_main_menu(&mut todos, &mut old) { break }
+        if !show_main_menu(&rofi_config, &mut todos, &mut old) { break }
     }
 
     match save_config(&config, &mut todos, &mut old) {
