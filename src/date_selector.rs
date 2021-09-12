@@ -1,6 +1,6 @@
 use chrono::NaiveDate;
 use chrono::Datelike;
-use crate::rofi::Rofi;
+use crate::rofi::{Rofi, RofiParams};
 
 /// Give the number of day in a month
 /// 
@@ -34,15 +34,16 @@ fn day_in_month(month: u32, year: i32) -> u32{
 /// 
 /// Arguments:
 /// 
+/// * `rofi_config` - the Rofi parameters
 /// * `default_date` - The date that is shown by default
-pub fn date_selector(default_date : NaiveDate) -> Option<NaiveDate> {
+pub fn date_selector(rofi_config : &RofiParams, default_date : NaiveDate) -> Option<NaiveDate> {
     let now = default_date;
     let year : i32;
     let month : u32;
     let day : u32;
     let year_list : Vec<String> = (now.year()..now.year()+10).map(|x| x.to_string()).collect();
     loop {
-        let selected_year = Rofi::new().prompt("Year").run(year_list.clone()).unwrap();
+        let selected_year = Rofi::from(rofi_config).prompt("Year").run(year_list.clone()).unwrap();
         if year_list.contains(&selected_year) {
             year = year_list.iter().position(|r| r.eq(&selected_year)).unwrap() as i32 + now.year();
             break;
@@ -56,7 +57,7 @@ pub fn date_selector(default_date : NaiveDate) -> Option<NaiveDate> {
         .collect();
     let suggested_month = now.month();
     loop {
-        let selected_month = Rofi::new().prompt("Month").selected(suggested_month-1).run(month_list.clone()).unwrap();
+        let selected_month = Rofi::from(rofi_config).prompt("Month").selected(suggested_month-1).run(month_list.clone()).unwrap();
         if month_list.contains(&selected_month) {
             month = month_list.iter().position(|r| r.eq(&selected_month)).unwrap() as u32 + 1;
             break;
@@ -67,7 +68,7 @@ pub fn date_selector(default_date : NaiveDate) -> Option<NaiveDate> {
     let day_list : Vec<String> = (1..day_in_month(month, year)+1).map(|x| x.to_string()).collect();
     let suggested_day = if month == now.month() {now.day()-1} else {0};
     loop {
-        let selected_day = Rofi::new().prompt("Day").selected(suggested_day).run(day_list.clone()).unwrap();
+        let selected_day = Rofi::from(rofi_config).prompt("Day").selected(suggested_day).run(day_list.clone()).unwrap();
         if day_list.contains(&selected_day) {
             day = day_list.iter().position(|r| r.eq(&selected_day)).unwrap() as u32 + 1;
             break;
