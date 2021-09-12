@@ -1,8 +1,15 @@
 use chrono::NaiveDate;
-use chrono::{Datelike, Utc};
+use chrono::Datelike;
 use crate::rofi::Rofi;
 
-
+/// Give the number of day in a month
+/// 
+/// Returns a `u32` with the number of days of the month
+/// 
+/// Arguments:
+/// 
+/// * `month` - the month you want the number of days
+/// * `year` - the year
 fn day_in_month(month: u32, year: i32) -> u32{
     match month {
         1 => 31,
@@ -17,12 +24,19 @@ fn day_in_month(month: u32, year: i32) -> u32{
         10 => 31,
         11 => 30,
         12 => 31,
-        _ => 0
+        _ => panic!("No month n°{}", month)
     }
 }
 
-pub fn date_selector() -> Option<NaiveDate> {
-    let now = Utc::now();
+/// Open a Rofi menu to select a date.
+/// 
+/// Returns `Some(NaiveDate)` if a date is selected, `None` if the user quitted
+/// 
+/// Arguments:
+/// 
+/// * `default_date` - The date that is shown by default
+pub fn date_selector(default_date : NaiveDate) -> Option<NaiveDate> {
+    let now = default_date;
     let year : i32;
     let month : u32;
     let day : u32;
@@ -63,4 +77,45 @@ pub fn date_selector() -> Option<NaiveDate> {
     }
     let dt = NaiveDate::from_ymd(year, month, day);
     Some(dt)
+}
+
+#[cfg(test)]
+mod day_in_month_tests {
+    use super::*;
+
+
+    /// Trying to get the number of days in a month that doesn't exist
+    #[test]
+    #[should_panic]
+    fn unexisting_month() {
+        day_in_month(0,2021);
+    }
+
+    /// Testing the number of days in different monthss
+    #[test]
+    fn days_of_months() {
+        assert_eq!(day_in_month(1,2021), 31);
+        assert_eq!(day_in_month(2,2021), 28);
+        assert_eq!(day_in_month(3,2021), 31);
+        assert_eq!(day_in_month(4,2021), 30);
+        assert_eq!(day_in_month(5,2021), 31);
+        assert_eq!(day_in_month(6,2021), 30);
+        assert_eq!(day_in_month(7,2021), 31);
+        assert_eq!(day_in_month(8,2021), 31);
+        assert_eq!(day_in_month(9,2021), 30);
+        assert_eq!(day_in_month(10,2021), 31);
+        assert_eq!(day_in_month(11,2021), 30);
+        assert_eq!(day_in_month(12,2021), 31);
+    }
+
+    /// Testing some bissextile or non bissextile years
+    #[test]
+    fn bissextile_years() {
+        assert_eq!(day_in_month(2,1900), 28);
+        assert_eq!(day_in_month(2,2000), 29);
+        assert_eq!(day_in_month(2,2001), 28);
+        assert_eq!(day_in_month(2,2004), 29);
+        assert_eq!(day_in_month(2,2100), 28);
+        assert_eq!(day_in_month(2,2400), 29);
+    }
 }

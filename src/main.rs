@@ -10,6 +10,8 @@ use serde_json;
 use std::collections::HashMap;
 use std::fs;
 use structopt::StructOpt;
+use chrono::{Utc,NaiveDate};
+use chrono::Datelike;
 
 
 #[derive(StructOpt)]
@@ -47,7 +49,8 @@ fn show_task_menu(todos : &mut TaskList, oldlist: &mut TaskList, index: usize) -
             true
         },
         "+ change date" => {
-            match date_selector() {
+            let now = Utc::now();
+            match date_selector(NaiveDate::from_ymd(now.year(), now.month(), now.day())) {
                 Some(date) => {
                     let old_task = todos.remove(index);
                     todos.push(Task::new_with_date(old_task.name, date))
@@ -78,7 +81,8 @@ fn show_add_task(todos : &mut TaskList) -> bool {
         },
         "* cancel" => true,
         "+ add date" => {
-            match date_selector() {
+            let now = Utc::now();
+            match date_selector(NaiveDate::from_ymd(now.year(), now.month(), now.day())) {
                 Some(date) => todos.push(Task::new_with_date(task, date)),
                 None => ()
             }
