@@ -9,3 +9,9 @@ configure
 install-sh
 Makefile.in
 missing
+Makefile
+config.log
+config.status
+
+# Others
+rofitodo
