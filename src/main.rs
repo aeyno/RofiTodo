@@ -41,7 +41,7 @@ fn show_task_menu(rofi_config : &RofiParams, todos : &mut TaskList, oldlist: &mu
         },
         "* cancel" => true,
         "+ edit" => {
-            let task = Rofi::new().prompt("Task").placeholder("").text_only().run(vec![]).unwrap();
+            let task = Rofi::from(rofi_config).prompt("Task").placeholder("").text_only().run(vec![]).unwrap();
             if task.eq("") {
                 return false;
             }
@@ -75,7 +75,7 @@ fn show_task_menu(rofi_config : &RofiParams, todos : &mut TaskList, oldlist: &mu
 }
 
 fn show_add_task(rofi_config : &RofiParams, todos : &mut TaskList) -> bool {
-    let task = Rofi::new().prompt("Task").placeholder("").text_only().run(vec![]).unwrap();
+    let task = Rofi::from(rofi_config).prompt("Task").placeholder("").text_only().run(vec![]).unwrap();
     if task.eq("") {
         return false;
     }
