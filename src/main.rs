@@ -1,18 +1,14 @@
 mod rofi;
 use rofi::{Rofi, RofiParams};
 mod task;
-use task::{Task, TaskList};
-mod json_task;
-use json_task::JsonTask;
+use task::{Task, TaskList, SortTaskBy};
 mod date_selector;
 use date_selector::date_selector;
-use serde_json;
-use std::collections::HashMap;
 use std::fs;
+use std::io::{self, BufRead};
 use structopt::StructOpt;
 use chrono::{Utc,NaiveDate};
 use chrono::Datelike;
-
 
 #[derive(StructOpt)]
 struct Cli {
@@ -24,7 +20,10 @@ struct Cli {
     no_config: bool,
     /// Set filter to be case insensitive
     #[structopt(short = "i", long = "case-insensitive")]
-    case_insensitive: bool
+    case_insensitive: bool,
+    /// How to sort the tasks
+    #[structopt(short = "s", long="sort", possible_values = &["creation","content","priority"], case_insensitive = true, default_value="content")]
+    sort : String
 }
 
 fn show_task_menu(rofi_config : &RofiParams, todos : &mut TaskList, oldlist: &mut TaskList, index: usize) -> bool {
@@ -36,7 +35,9 @@ fn show_task_menu(rofi_config : &RofiParams, todos : &mut TaskList, oldlist: &mu
     menu.push(String::from("* cancel"));
     match Rofi::from(rofi_config).prompt("Edit").run(menu).unwrap().as_ref() {
         "✔ mark as done" => {
-            oldlist.push(todos.remove(index));
+            let mut t = todos.remove(index);
+            t.set_completed();
+            oldlist.push(t);
             true
         },
         "* cancel" => true,
@@ -59,7 +60,7 @@ fn show_task_menu(rofi_config : &RofiParams, todos : &mut TaskList, oldlist: &mu
             match date_selector(rofi_config, NaiveDate::from_ymd(now.year(), now.month(), now.day())) {
                 Some(date) => {
                     let old_task = todos.remove(index);
-                    todos.push(Task::new_with_date(old_task.name, date))
+                    todos.push(Task::new_with_date(old_task.content, date))
                 },
                 None => ()
             }
@@ -67,7 +68,7 @@ fn show_task_menu(rofi_config : &RofiParams, todos : &mut TaskList, oldlist: &mu
         },
         "! remove date" => {
             let old_task = todos.remove(index);
-            todos.push(Task::new(old_task.name));            
+            todos.push(Task::new(old_task.content));            
             true
         },
         _ => false
@@ -150,41 +151,40 @@ fn load_config(config_file: &std::path::PathBuf, todos: &mut TaskList, old: &mut
     if !std::path::Path::new(config_file).exists() {
         save_config(config_file, &mut TaskList::new(), &mut TaskList::new()).unwrap();
     }
-    let read = fs::read_to_string(config_file);
-    match read {
-        Ok(_) => (),
-        Err(e) => return Err(e.to_string())
-    }
-    let content = read.unwrap();
-    let parse_result = serde_json::from_str(&content);
-    match parse_result {
-        Ok(_) => (),
-        Err(e) => return Err(format!("{} : {}", "Bad json", e.to_string()))
-    }
-    let parsed : HashMap<String,Vec<JsonTask>> = parse_result.unwrap();
-
-    for i in 0..parsed["todos"].len() {
-        todos.push(parsed["todos"][i].to_task());
-    }
-    for i in 0..parsed["old"].len() {
-        old.push(parsed["old"][i].to_task());
+    if let Ok(lines) = read_lines(config_file) {
+        for line in lines {
+            if let Ok(linestr) = line {
+                let task_result = Task::from_todotxt(String::from(linestr));
+                match task_result {
+                    Ok(task) => match task.completion {
+                        false => todos.push(task),
+                        true => old.push(task)
+                    }
+                    Err(_) => ()
+                }
+            }
+        }
     }
     Ok(true)
 }
 
-fn save_config(config_file: &std::path::PathBuf, todos: &mut TaskList, old: &mut TaskList) -> Result<bool,String> {
-    let mut save = HashMap::<String, Vec<JsonTask>>::new();
-    save.entry(String::from("todos")).or_insert(Vec::<JsonTask>::new());
-    for todo in todos.get_content() {
-        save.entry(String::from("todos")).or_insert(Vec::<JsonTask>::new()).push(JsonTask::from(&todo));
-    }
-    save.entry(String::from("old")).or_insert(Vec::<JsonTask>::new());
-    for todo in old.get_content() {
-        save.entry(String::from("old")).or_insert(Vec::<JsonTask>::new()).push(JsonTask::from(&todo));
-    }
-    let res = serde_json::to_string(&save);
+fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<fs::File>>> where P: AsRef<std::path::Path> {
+    let file = fs::File::open(filename)?;
+    Ok(io::BufReader::new(file).lines())
+}
 
-    match fs::write(config_file, res.unwrap()) {
+fn save_config(config_file: &std::path::PathBuf, todos: &mut TaskList, old: &mut TaskList) -> Result<bool,String> {
+    let mut save = String::new();
+    for todo in todos.get_content() {
+        save.push_str(&todo.to_todotxt());
+        save.push_str("\n");
+    }
+    for todo in old.get_content() {
+        save.push_str(&todo.to_todotxt());
+        save.push_str("\n");
+    }
+
+    match fs::write(config_file, save) {
         Ok(_) => Ok(true),
         Err(e) => Err(e.to_string())
     }
@@ -195,6 +195,15 @@ fn main() {
     let mut old = TaskList::new();
 
     let args = Cli::from_args();
+
+    let sort  = match args.sort.as_ref() {
+        "content" => SortTaskBy::Content,
+        "creation" => SortTaskBy::CreationDate,
+        "priority" => SortTaskBy::Priority,
+        _ => SortTaskBy::Content
+    };
+    todos.change_sort(sort.clone());
+    old.change_sort(sort);
 
     let rofi_config = RofiParams { no_config : args.no_config, case_insensitive : args.case_insensitive };
 
