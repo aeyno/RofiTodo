@@ -45,6 +45,11 @@ impl Rofi {
         Ok(retour)
     }
 
+    pub fn msg(mut self, m: String) -> Self {
+        self.rofi.arg("-mesg").arg(m);
+        self
+    }
+
     pub fn no_config(mut self) -> Self {
         self.rofi.arg("-no-config");
         self
