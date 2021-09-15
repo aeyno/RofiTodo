@@ -132,6 +132,11 @@ impl Task {
         }
     }
 
+    pub fn set_not_completed(&mut self) {
+        self.completion = false;
+        self.completion_date = None;
+    }
+
     /// Return a `String` representation of the task
     pub fn to_string(&self) -> String  {
         let mut s = String::new();
