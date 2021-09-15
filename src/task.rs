@@ -1,4 +1,4 @@
-use chrono::{NaiveDate, Utc, Datelike};
+use chrono::{NaiveDate, Local, Datelike};
 use regex::{Regex, CaptureMatches, Captures};
 use lazy_static::lazy_static;
 use std::collections::HashMap;
@@ -17,7 +17,7 @@ pub struct Task {
     /// The content of the task
     pub content : String,
     /// An optionnal `NaiveDate` corresponding to when the task should be done
-    pub date : Option<NaiveDate>,
+    duedate : Option<NaiveDate>,
     /// Is the task done
     pub completion : bool,
     /// When the task was completed
@@ -45,7 +45,7 @@ impl Task {
     pub fn empty() -> Self {
         Task {
             content: String::new(),
-            date: None,
+            duedate: None,
             completion : false,
             context_tags : vec![],
             project_tags : vec![],
@@ -64,7 +64,7 @@ impl Task {
     /// 
     /// * `content` - the content of the task
     pub fn new(content: String) -> Self {
-        let today = Utc::now();
+        let today = Local::now();
         let mut task = Self::empty();
         task.set_content(content);
         task.creation_date = Some(NaiveDate::from_ymd(today.year(), today.month(), today.day()));
@@ -81,7 +81,7 @@ impl Task {
     /// * `date` - the date when the task should be done
     pub fn new_with_date(content: String, date: NaiveDate) -> Self {
         let mut t = Self::new(content);
-        t.date = Some(date);
+        t.set_due(Some(date));
         t
     }
 
@@ -109,9 +109,21 @@ impl Task {
         &self.project_tags
     }
 
+    pub fn get_due(&self) -> &Option<NaiveDate> {
+        &self.duedate
+    }
+
+    pub fn set_due(&mut self, date: Option<NaiveDate>) {
+        self.duedate = date;
+        match date {
+            Some(date) => { self.custom_tags.insert(String::from("due"), format!("{}",date.format("%Y-%m-%d"))); },
+            None => { self.custom_tags.remove_entry(&String::from("due")); }
+        }
+    }
+
     pub fn set_completed(&mut self) {
         self.completion = true;
-        let today = Utc::now();
+        let today = Local::now();
         self.completion_date = Some(NaiveDate::from_ymd(today.year(), today.month(), today.day()));
         // Adding a creation date to respect the todo.txt specification (no task with a completion date and without a creation date)
         match self.creation_date {
@@ -122,10 +134,39 @@ impl Task {
 
     /// Return a `String` representation of the task
     pub fn to_string(&self) -> String  {
-        match self.date {
+        match self.duedate {
             Some(d) => format!("{} : {}", d.format("%Y-%m-%d"), self.content),
             None => format!("{}", self.content)
         }
+    }
+
+    pub fn recap_str(&self) -> String {
+        let mut s = String::new();
+        s.push_str(&format!("𝐓𝐚𝐬𝐤 : {}", self.get_content()));
+        if self.completion {
+            s.push_str("\n𝐒𝐭𝐚𝐭𝐮𝐬 : Done");
+            if let Some(date) = self.completion_date {
+                s.push_str(&format!(" ({})",date.format("%Y-%m-%d")));
+            }
+        } else {
+            s.push_str("\n𝐒𝐭𝐚𝐭𝐮𝐬 : To do");
+        }
+        if let Some(p) = self.priority {
+            s.push_str(&format!("\n𝐏𝐫𝐢𝐨𝐫𝐢𝐭𝐲 : {}", p));
+        }
+        if let Some(date) = self.creation_date {
+            s.push_str(&format!("\n𝐂𝐫𝐞𝐚𝐭𝐞𝐝 𝐨𝐧 : {}", date.format("%Y-%m-%d")));
+        }
+        if let Some(date) = self.duedate {
+            s.push_str(&format!("\n𝐃𝐮𝐞 𝐝𝐚𝐭𝐞 : {}", date.format("%Y-%m-%d")));
+        }
+        if self.context_tags.len() > 0 {
+            s.push_str(&format!{"\n𝐂𝐨𝐧𝐭𝐞𝐱𝐭 𝐭𝐚𝐠𝐬 : {}", self.get_context_tags().join(", ")});
+        }
+        if self.project_tags.len() > 0 {
+            s.push_str(&format!{"\n𝐏𝐫𝐨𝐣𝐞𝐜𝐭 𝐭𝐚𝐠𝐬 : {}", self.get_project_tags().join(", ")});
+        }
+        s
     }
 
     pub fn from_todotxt(todo: String) -> Result<Self, String> {
@@ -197,6 +238,14 @@ impl Task {
         // Get Projet Tags and Context Tags
         task.extract_tags();
 
+        // Extract the due date from custom tags
+        match task.custom_tags.get(&String::from("due")) {
+            Some(str_date) => task.duedate = match NaiveDate::parse_from_str(str_date.as_str(), "%Y-%m-%d ") {
+                Ok(date) => Some(date),
+                Err(_) => None
+            },
+            None => ()
+        }
         Ok(task)
     }
 

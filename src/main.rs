@@ -7,13 +7,12 @@ use date_selector::date_selector;
 use std::fs;
 use std::io::{self, BufRead};
 use structopt::StructOpt;
-use chrono::{Utc,NaiveDate};
-use chrono::Datelike;
+use chrono::{Local, NaiveDate, Datelike};
 
 #[derive(StructOpt)]
 struct Cli {
     /// The path to the RofiTodo config/task list file
-    #[structopt(short, long, parse(from_os_str), default_value = "./rofitodo")]
+    #[structopt(short, long, parse(from_os_str), default_value = "./todo.txt")]
     config: std::path::PathBuf,
     /// Do not load Rofi configuration, use default values.
     #[structopt(long = "no-config")]
@@ -28,12 +27,12 @@ struct Cli {
 
 fn show_task_menu(rofi_config : &RofiParams, todos : &mut TaskList, oldlist: &mut TaskList, index: usize) -> bool {
     let mut menu =  vec![String::from("✔ mark as done"), String::from("+ edit"), String::from("+ change date")];
-    match todos.get_content().get(index).unwrap().date {
+    match todos.get_content().get(index).unwrap().get_due() {
         Some(_) => menu.push(String::from("! remove date")),
         None => ()
     }
     menu.push(String::from("* cancel"));
-    match Rofi::from(rofi_config).prompt("Edit").run(menu).unwrap().as_ref() {
+    match Rofi::from(rofi_config).msg(todos.get_content()[index].recap_str()).select_range(0,menu.len()-1).prompt("Edit").run(menu).unwrap().as_ref() {
         "✔ mark as done" => {
             let mut t = todos.remove(index);
             t.set_completed();
@@ -47,16 +46,16 @@ fn show_task_menu(rofi_config : &RofiParams, todos : &mut TaskList, oldlist: &mu
                 return false;
             }
             let old_task = todos.remove(index);
-            match old_task.date {
+            match old_task.get_due() {
                 Some(date) => {
-                    todos.push(Task::new_with_date(task, date))
+                    todos.push(Task::new_with_date(task, *date))
                 },
                 None => todos.push(Task::new(task))
             }
             true
         },
         "+ change date" => {
-            let now = Utc::now();
+            let now = Local::now();
             match date_selector(rofi_config, NaiveDate::from_ymd(now.year(), now.month(), now.day())) {
                 Some(date) => {
                     let old_task = todos.remove(index);
@@ -67,8 +66,9 @@ fn show_task_menu(rofi_config : &RofiParams, todos : &mut TaskList, oldlist: &mu
             true
         },
         "! remove date" => {
-            let old_task = todos.remove(index);
-            todos.push(Task::new(old_task.content));            
+            let mut old_task = todos.remove(index);
+            old_task.set_due(None);
+            todos.push(old_task);
             true
         },
         _ => false
@@ -81,14 +81,14 @@ fn show_add_task(rofi_config : &RofiParams, todos : &mut TaskList) -> bool {
         return false;
     }
     let menu =  vec![String::from("✔ validate"), String::from("+ add date"), String::from("* cancel")];
-    match Rofi::from(rofi_config).prompt("Edit").run(menu).unwrap().as_ref() {
+    match Rofi::from(rofi_config).prompt("Edit").select_range(0,menu.len()-1).run(menu).unwrap().as_ref() {
         "✔ validate" => {
             todos.push(Task::new(task));
             true
         },
         "* cancel" => true,
         "+ add date" => {
-            let now = Utc::now();
+            let now = Local::now();
             match date_selector(rofi_config, NaiveDate::from_ymd(now.year(), now.month(), now.day())) {
                 Some(date) => todos.push(Task::new_with_date(task, date)),
                 None => ()
@@ -104,7 +104,7 @@ fn show_old_menu(rofi_config : &RofiParams, oldlist: &mut TaskList) -> bool {
     for todo in oldlist.get_content() {
         choices.push(todo.to_string());
     }
-    match Rofi::from(rofi_config).prompt("Todo").run(choices).unwrap().as_ref() {
+    match Rofi::from(rofi_config).prompt("Todo").select_range(0,1).run(choices).unwrap().as_ref() {
         "← back" => true,
         "@ exit" => false,
         "" => false,
@@ -126,7 +126,7 @@ fn show_main_menu(rofi_config : &RofiParams, todos : &mut TaskList, oldlist: &mu
     for todo in todos.get_content() {
         choices.push(todo.to_string());
     }
-    match Rofi::from(rofi_config).prompt("Todo").run(choices).unwrap().as_ref() {
+    match Rofi::from(rofi_config).prompt("Todo").select_range(0,2).run(choices).unwrap().as_ref() {
         "+ add" => {
             show_add_task(rofi_config, todos);
             true
