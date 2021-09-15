@@ -4,7 +4,7 @@
 ![LastCommit](https://img.shields.io/github/last-commit/Any0ne22/RofiTodo)
 ![LastRelease](https://img.shields.io/github/v/release/Any0ne22/RofiTodo)
 
-A to-do list using Rofi
+A to-do list using Rofi compatible with [todo.txt specification](https://github.com/todotxt/todo.txt)
 
 ## **Installation**
 
@@ -63,6 +63,18 @@ A to-do list using Rofi
 
     ```bash
     rofitodo --case-insensitive
+    ```
+
+- Set the default sorting order between creation date (`creation`), lexicographic (`content`) and priority (`priority`):
+
+    ```bash
+    rofitodo -s creation
+    ```
+
+    or
+
+    ```bash
+    rofitodo --sort creation
     ```
 
 - Print version :

@@ -45,8 +45,18 @@ impl Rofi {
         Ok(retour)
     }
 
+    pub fn msg(mut self, m: String) -> Self {
+        self.rofi.arg("-theme-str").arg("textbox { markup: false; }").arg("-mesg").arg(m);
+        self
+    }
+
     pub fn no_config(mut self) -> Self {
         self.rofi.arg("-no-config");
+        self
+    }
+
+    pub fn select_range(mut self, start: usize, end: usize) -> Self {
+        self.rofi.arg("-a").arg(format!("{}-{}", start, end));
         self
     }
 
