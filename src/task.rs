@@ -315,8 +315,8 @@ impl Task {
     pub fn comp_priority(&self, compare: &Self) -> std::cmp::Ordering {
         match (self.priority, compare.priority) {
             (Some(p1), Some(p2)) => if p1 == p2 {self.comp_content(compare)} else if p1 < p2 {std::cmp::Ordering::Less} else {std::cmp::Ordering::Greater},
-            (Some(_), None) => std::cmp::Ordering::Greater,
-            (None, Some(_)) => std::cmp::Ordering::Less,
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
             (None, None) => self.comp_content(compare)
         }
     }
