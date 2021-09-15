@@ -134,10 +134,15 @@ impl Task {
 
     /// Return a `String` representation of the task
     pub fn to_string(&self) -> String  {
-        match self.duedate {
-            Some(d) => format!("{} : {}", d.format("%Y-%m-%d"), self.content),
-            None => format!("{}", self.content)
+        let mut s = String::new();
+        if let Some(priority) = self.priority {
+            s.push_str(&format!("({}) ", priority));
         }
+        if let Some(date) = self.duedate {
+            s.push_str(&format!("{} : ", date.format("%Y-%m-%d")));
+        }
+        s.push_str(&self.content);
+        s
     }
 
     pub fn recap_str(&self) -> String {
