@@ -31,6 +31,7 @@ fn show_task_menu(rofi_config : &RofiParams, todos : &mut TaskList, oldlist: &mu
         Some(_) => menu.push(String::from("! remove date")),
         None => ()
     }
+    menu.push(String::from("! remove"));
     menu.push(String::from("* cancel"));
     match Rofi::from(rofi_config).msg(todos.get_content()[index].recap_str()).select_range(0,menu.len()-1).prompt("Edit").run(menu).unwrap().as_ref() {
         "✔ mark as done" => {
@@ -69,6 +70,10 @@ fn show_task_menu(rofi_config : &RofiParams, todos : &mut TaskList, oldlist: &mu
             let mut old_task = todos.remove(index);
             old_task.set_due(None);
             todos.push(old_task);
+            true
+        },
+        "! remove" => {
+            todos.remove(index);
             true
         },
         _ => false
