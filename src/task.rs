@@ -97,22 +97,35 @@ impl Task {
         self.extract_tags();
     }
 
+    /// Get the content of the task
+    /// 
+    /// Return `&String` to the content of the task
     pub fn get_content(&self) -> &String {
         &self.content
     }
 
+    /// Return a reference to a context tag array
     pub fn get_context_tags(&self) -> &Vec<String> {
         &self.context_tags
     }
 
+    /// Return a reference to a project tag array
     pub fn get_project_tags(&self) -> &Vec<String> {
         &self.project_tags
     }
 
+    /// Get the due date of the task
     pub fn get_due(&self) -> &Option<NaiveDate> {
         &self.duedate
     }
 
+    /// Set the due date of a task
+    /// 
+    /// Change the due date of the task and store it in a custom tag
+    /// 
+    /// Arguments:
+    /// 
+    /// * `date` - a `Option<NaiveDate>` containing the date or None
     pub fn set_due(&mut self, date: Option<NaiveDate>) {
         self.duedate = date;
         match date {
@@ -121,6 +134,10 @@ impl Task {
         }
     }
 
+    /// Set the task as completed
+    /// 
+    /// Change the completion to `true` and store the actual date as completion date.
+    /// If there is no creation date for the task, it creates a creation date identical to the completion date
     pub fn set_completed(&mut self) {
         self.completion = true;
         let today = Local::now();
@@ -132,12 +149,17 @@ impl Task {
         }
     }
 
+    /// Set a task as to do
+    /// 
+    /// Change the completion status to `false` and remove the completion date
     pub fn set_not_completed(&mut self) {
         self.completion = false;
         self.completion_date = None;
     }
 
     /// Return a `String` representation of the task
+    /// 
+    /// Show the priority (optionnal), content and due date (optionnal)
     pub fn to_string(&self) -> String  {
         let mut s = String::new();
         if let Some(priority) = self.priority {
@@ -150,6 +172,7 @@ impl Task {
         s
     }
 
+    /// Show a complete description of the task
     pub fn recap_str(&self) -> String {
         let mut s = String::new();
         s.push_str(&format!("𝐓𝐚𝐬𝐤 : {}", self.get_content()));
@@ -179,6 +202,11 @@ impl Task {
         s
     }
 
+    /// Import a `String` containing a todo.txt representation of a task and return a new `Task`
+    /// 
+    /// Arguments:
+    /// 
+    /// * `todo` - a `String` with a task following todo.txt format
     pub fn from_todotxt(todo: String) -> Result<Self, String> {
         lazy_static! {
             static ref RE_TASK : Regex = Regex::new(r"^(?P<completion>x )?(\((?P<priority>[A-Z])\) )?(?P<compdate>\d{4}-\d{2}-\d{2} )?(?P<creadate>\d{4}-\d{2}-\d{2} )?(?P<content>.*)$").unwrap();
@@ -259,6 +287,7 @@ impl Task {
         Ok(task)
     }
 
+    /// Return the tas in a todo.txt format `String`
     pub fn to_todotxt(&self) -> String {
         let mut s = String::new();
         if self.completion {
@@ -303,7 +332,12 @@ impl Task {
         tags
     }
 
-    /// Compare two `Task`s to sort them
+    /// Compare two `Task`s to sort them according to `sort` order
+    /// 
+    /// Arguments:
+    /// 
+    /// * `compare` - a task to compare
+    /// * `sort` - sort order
     pub fn comp(&self, compare: &Self, sort: &SortTaskBy) -> std::cmp::Ordering {
         match sort {
             SortTaskBy::Content => {self.comp_content(compare)},
@@ -312,6 +346,11 @@ impl Task {
         }
     }
 
+    /// Compare two `Task`s to sort them by priority
+    /// 
+    /// Arguments:
+    /// 
+    /// * `compare` - a task to compare
     pub fn comp_priority(&self, compare: &Self) -> std::cmp::Ordering {
         match (self.priority, compare.priority) {
             (Some(p1), Some(p2)) => if p1 == p2 {self.comp_content(compare)} else if p1 < p2 {std::cmp::Ordering::Less} else {std::cmp::Ordering::Greater},
@@ -321,6 +360,11 @@ impl Task {
         }
     }
 
+    /// Compare two `Task`s to sort them by creation date
+    /// 
+    /// Arguments:
+    /// 
+    /// * `compare` - a task to compare
     pub fn comp_creation_date(&self, compare: &Self) -> std::cmp::Ordering {
         match (self.creation_date, compare.creation_date) {
             (Some(d1), Some(d2)) => if d1 == d2 {self.comp_content(compare)} else if d1 < d2 {std::cmp::Ordering::Less} else {std::cmp::Ordering::Greater},
@@ -330,6 +374,11 @@ impl Task {
         }
     }
 
+    // Compare two `Task`s to sort them by content
+    /// 
+    /// Arguments:
+    /// 
+    /// * `compare` - a task to compare
     pub fn comp_content(&self, compare: &Self) -> std::cmp::Ordering {
         if self.content == compare.content {
             std::cmp::Ordering::Equal
