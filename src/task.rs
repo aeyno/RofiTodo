@@ -424,6 +424,13 @@ impl TaskList {
         }
     }
 
+    /// A binary search algorithm that return the index to insert a new task
+    /// 
+    /// Arguments:
+    /// 
+    /// * `tab` - the vector of task
+    /// * `t` - the new task
+    /// * `sort` - the sorting order
     fn binary_search(tab : &Vec<Task>, t: &Task, sort : &SortTaskBy) -> usize {
         let mut a : usize = 0;
         let mut b : usize = tab.len()-1;
