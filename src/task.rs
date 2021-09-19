@@ -511,6 +511,35 @@ mod task_tests {
     }
 
     #[test]
+    fn completed() {
+        let mut t1 = Task::from_todotxt(String::from("a task")).unwrap();
+        t1.set_completed();
+        assert_eq!(t1.completion, true);
+        assert_eq!(t1.creation_date, t1.completion_date);
+
+        let mut t2 = Task::from_todotxt(String::from("2020-01-01 a task")).unwrap();
+        t2.set_completed();
+        assert_eq!(t2.completion, true);
+        assert_ne!(t2.creation_date, t2.completion_date);
+
+        let t3 = Task::from_todotxt(String::from("x a task")).unwrap();
+        assert_eq!(t3.completion, true);
+    }
+
+    #[test]
+    fn not_completed() {
+        let t1 = Task::from_todotxt(String::from("a task")).unwrap();
+        assert_eq!(t1.completion, false);
+
+        let mut t2 = Task::from_todotxt(String::from("2020-01-01 a task")).unwrap();
+        t2.set_completed();
+        assert_eq!(t2.completion, true);
+        t2.set_not_completed();
+        assert_eq!(t2.completion, false);
+        assert_eq!(t2.completion_date, None);
+    }
+
+    #[test]
     fn from_todotxt() {
         let t1 = Task::from_todotxt(String::from("(A) Thank Mom for the aaa @phone")).unwrap();
         assert_eq!(t1.get_content(), "Thank Mom for the aaa @phone");
