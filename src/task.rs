@@ -287,7 +287,7 @@ impl Task {
         Ok(task)
     }
 
-    /// Return the tas in a todo.txt format `String`
+    /// Return the task in a todo.txt format `String`
     pub fn to_todotxt(&self) -> String {
         let mut s = String::new();
         if self.completion {
@@ -353,10 +353,10 @@ impl Task {
     /// * `compare` - a task to compare
     pub fn comp_priority(&self, compare: &Self) -> std::cmp::Ordering {
         match (self.priority, compare.priority) {
-            (Some(p1), Some(p2)) => if p1 == p2 {self.comp_content(compare)} else if p1 < p2 {std::cmp::Ordering::Less} else {std::cmp::Ordering::Greater},
+            (Some(p1), Some(p2)) => if p1 == p2 {self.comp_creation_date(compare)} else if p1 < p2 {std::cmp::Ordering::Less} else {std::cmp::Ordering::Greater},
             (Some(_), None) => std::cmp::Ordering::Less,
             (None, Some(_)) => std::cmp::Ordering::Greater,
-            (None, None) => self.comp_content(compare)
+            (None, None) => self.comp_creation_date(compare)
         }
     }
 
@@ -390,21 +390,32 @@ impl Task {
     }
 }
 
+
+/// A struct containing a vector of tasks and methods for sorting them
 pub struct TaskList {
+    /// A list of tasks
     content : Vec<Task>,
+    /// A sorting method
     sort : SortTaskBy
 }
 
 impl TaskList {
+    /// Create a new tasklist
     pub fn new() -> Self {
         TaskList { content : Vec::<Task>::new(), sort : SortTaskBy::CreationDate }
     }
 
+    /// Change the sorting order
+    /// 
+    /// Arguments:
+    /// 
+    /// * `new_sort` - a sorting order
     pub fn change_sort(&mut self, new_sort: SortTaskBy) {
         self.sort = new_sort;
         self.sort();
     }
 
+    /// Sort the tasks
     pub fn sort(&mut self) {
         match self.sort {
             SortTaskBy::Content => {self.content.sort_by(Task::comp_content)},
@@ -433,10 +444,16 @@ impl TaskList {
         return a;
     }
 
+    /// Get a reference to the Vec of Task
     pub fn get_content(&self) -> &Vec<Task> {
         &self.content
     }
 
+    /// Add a task to the vec using a binary search
+    /// 
+    /// Arguments:
+    /// 
+    /// * `t` - the new task
     pub fn push(&mut self, t: Task) {
         if self.content.len() == 0 {
             self.content.push(t);
@@ -446,6 +463,11 @@ impl TaskList {
         self.content.insert(Self::binary_search(&self.content, &t, &self.sort), t);
     }
 
+    /// Remove a task from the list and return it
+    /// 
+    /// Arguments:
+    /// 
+    /// * `index` - the index of the task
     pub fn remove(&mut self, index: usize) -> Task {
         self.content.remove(index)
     }
