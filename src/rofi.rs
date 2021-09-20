@@ -167,3 +167,28 @@ fn vec2str(tab : Vec<String>) -> String {
     }
     s
 }
+
+#[cfg(test)]
+mod rofiutils_tests {
+    use super::*;
+
+    #[test]
+    fn trim_newline_test() {
+        let mut test_string = String::from("Hello\n");
+        trim_newline(&mut test_string);
+        assert_eq!(test_string, "Hello");
+        let mut test_string2 = String::from("Hi!");
+        trim_newline(&mut test_string2);
+        assert_eq!(test_string2, "Hi!");
+        let mut test_string3 = String::from("foobar\r\n");
+        trim_newline(&mut test_string3);
+        assert_eq!(test_string3, "foobar");
+    }
+
+    #[test]
+    fn vec2str_test() {
+        let test_vec = vec![String::from("foo"), String::from("bar")];
+        assert_eq!(vec2str(test_vec), String::from("foo\nbar\n"));
+    }
+
+}
