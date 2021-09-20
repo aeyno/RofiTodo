@@ -12,12 +12,18 @@ pub struct Rofi {
 }
 
 impl Rofi {
+    /// Create a new Rofi instance
     pub fn new() -> Self {
         let mut r = Rofi { rofi : Command::new("rofi") };
         r.rofi.arg("-dmenu");
         r
     }
 
+    /// Create a new Rofi instance from paramaters
+    /// 
+    /// Arguments:
+    /// 
+    /// * `p` - a reference to a `RofiParams` struct
     pub fn from(p : &RofiParams) -> Self {
         let mut rofi = Self::new();
         if p.no_config {
@@ -29,6 +35,11 @@ impl Rofi {
         rofi
     }
 
+    /// Launch Rofi with a list of entries
+    /// 
+    /// Arguments:
+    /// 
+    /// * `entries` - a vector of `String` to display as options in Rofi
     pub fn run(mut self, entries: Vec<String>) -> Result<String, String> {
         let mut proc = self.rofi.stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -45,11 +56,21 @@ impl Rofi {
         Ok(retour)
     }
 
+    /// Print a message under the prompt
+    /// 
+    /// Pango markup is currently disabled because user tasks content is interpreted
+    /// 
+    /// Arguments:
+    /// 
+    /// * `m` - the `String` to display
     pub fn msg(mut self, m: String) -> Self {
         self.rofi.arg("-theme-str").arg("textbox { markup: false; }").arg("-mesg").arg(m);
         self
     }
 
+    /// Do not load the Rofi config
+    /// 
+    /// Equivalent to `-no-config` Rofi flag
     pub fn no_config(mut self) -> Self {
         self.rofi.arg("-no-config");
         self
@@ -57,6 +78,11 @@ impl Rofi {
 
     pub fn select_range(mut self, start: usize, end: usize) -> Self {
         self.rofi.arg("-a").arg(format!("{}-{}", start, end));
+        self
+    }
+
+    pub fn pretext(mut self, text: String) -> Self {
+        self.rofi.arg("-filter").arg(text);
         self
     }
 

@@ -50,7 +50,13 @@ fn show_task_menu(rofi_config : &RofiParams, todos : &mut TaskList, done: &mut T
             },
             "* cancel" => return MenuStatus::MAINMENU,
             "+ edit" => {
-                let task = Rofi::from(rofi_config).prompt("Task").placeholder("").text_only().run(vec![]).unwrap();
+                let task = Rofi::from(rofi_config)
+                            .prompt("Task")
+                            .placeholder("")
+                            .pretext(todos.get_content()[index].get_content().to_string())
+                            .text_only()
+                            .run(vec![])
+                            .unwrap();
                 if task.eq("") {
                     continue;
                 }
