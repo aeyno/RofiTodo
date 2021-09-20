@@ -8,7 +8,8 @@ use std::collections::HashMap;
 pub enum SortTaskBy {
     CreationDate,
     Content,
-    Priority
+    Priority,
+    DueDate
 }
 
 /// A task struct
@@ -342,7 +343,8 @@ impl Task {
         match sort {
             SortTaskBy::Content => {self.comp_content(compare)},
             SortTaskBy::CreationDate => {self.comp_creation_date(compare)},
-            SortTaskBy::Priority =>{self.comp_priority(compare)}
+            SortTaskBy::Priority => {self.comp_priority(compare)},
+            SortTaskBy::DueDate => {self.comp_due_date(compare)}
         }
     }
 
@@ -435,7 +437,8 @@ impl TaskList {
         match self.sort {
             SortTaskBy::Content => {self.content.sort_by(Task::comp_content)},
             SortTaskBy::CreationDate => {self.content.sort_by(Task::comp_creation_date)},
-            SortTaskBy::Priority =>{self.content.sort_by(Task::comp_priority)}
+            SortTaskBy::Priority => {self.content.sort_by(Task::comp_priority)},
+            SortTaskBy::DueDate => {self.content.sort_by(Task::comp_due_date)}
         }
     }
 

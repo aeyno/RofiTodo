@@ -65,7 +65,7 @@ A to-do list using Rofi compatible with [todo.txt specification](https://github.
     rofitodo --case-insensitive
     ```
 
-- Set the default sorting order between creation date (`creation`), lexicographic (`content`) and priority (`priority`):
+- Set the default sorting order between creation date (`creation`), lexicographic (`content`), due date (`due`) and priority (`priority`):
 
     ```bash
     rofitodo -s creation

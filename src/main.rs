@@ -21,7 +21,7 @@ struct Cli {
     #[structopt(short = "i", long = "case-insensitive")]
     case_insensitive: bool,
     /// How to sort the tasks
-    #[structopt(short = "s", long="sort", possible_values = &["creation","content","priority"], case_insensitive = true, default_value="content")]
+    #[structopt(short = "s", long="sort", possible_values = &["creation","content","priority","due"], case_insensitive = true, default_value="content")]
     sort : String
 }
 
@@ -248,6 +248,7 @@ fn main() {
         "content" => SortTaskBy::Content,
         "creation" => SortTaskBy::CreationDate,
         "priority" => SortTaskBy::Priority,
+        "due" => SortTaskBy::DueDate,
         _ => SortTaskBy::Content
     };
     todos.change_sort(sort.clone());
