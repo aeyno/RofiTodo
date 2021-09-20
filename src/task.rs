@@ -353,10 +353,10 @@ impl Task {
     /// * `compare` - a task to compare
     pub fn comp_priority(&self, compare: &Self) -> std::cmp::Ordering {
         match (self.priority, compare.priority) {
-            (Some(p1), Some(p2)) => if p1 == p2 {self.comp_creation_date(compare)} else if p1 < p2 {std::cmp::Ordering::Less} else {std::cmp::Ordering::Greater},
+            (Some(p1), Some(p2)) => if p1 == p2 {self.comp_due_date(compare)} else if p1 < p2 {std::cmp::Ordering::Less} else {std::cmp::Ordering::Greater},
             (Some(_), None) => std::cmp::Ordering::Less,
             (None, Some(_)) => std::cmp::Ordering::Greater,
-            (None, None) => self.comp_creation_date(compare)
+            (None, None) => self.comp_due_date(compare)
         }
     }
 
@@ -373,6 +373,21 @@ impl Task {
             (None, None) => self.comp_content(compare)
         }
     }
+
+    /// Compare two `Task`s to sort them by due date
+    /// 
+    /// Arguments:
+    /// 
+    /// * `compare` - a task to compare
+    pub fn comp_due_date(&self, compare: &Self) -> std::cmp::Ordering {
+        match (self.duedate, compare.duedate) {
+            (Some(d1), Some(d2)) => if d1 == d2 {self.comp_content(compare)} else if d1 < d2 {std::cmp::Ordering::Less} else {std::cmp::Ordering::Greater},
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => self.comp_content(compare)
+        }
+    }
+
 
     // Compare two `Task`s to sort them by content
     /// 
@@ -509,6 +524,17 @@ mod task_tests {
         assert_eq!(t1.comp_creation_date(&t2), std::cmp::Ordering::Less);
         assert_eq!(t2.comp_creation_date(&t1), std::cmp::Ordering::Greater);
     }
+
+    #[test]
+    fn comp_date_due() {
+        let t1 = Task::from_todotxt(String::from("a task due:2021-01-02")).unwrap();
+        let t2 = Task::from_todotxt(String::from("another task due:2021-01-01")).unwrap();
+        assert_eq!(t1.comp_due_date(&t2), std::cmp::Ordering::Greater);
+        assert_eq!(t2.comp_due_date(&t1), std::cmp::Ordering::Less);
+        let t3 = Task::from_todotxt(String::from("this is a task due:2021-01-01")).unwrap();
+        assert_eq!(t2.comp_due_date(&t3), std::cmp::Ordering::Less);
+    }
+
 
     #[test]
     fn completed() {
