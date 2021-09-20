@@ -8,7 +8,8 @@ use std::collections::HashMap;
 pub enum SortTaskBy {
     CreationDate,
     Content,
-    Priority
+    Priority,
+    DueDate
 }
 
 /// A task struct
@@ -97,22 +98,35 @@ impl Task {
         self.extract_tags();
     }
 
+    /// Get the content of the task
+    /// 
+    /// Return `&String` to the content of the task
     pub fn get_content(&self) -> &String {
         &self.content
     }
 
+    /// Return a reference to a context tag array
     pub fn get_context_tags(&self) -> &Vec<String> {
         &self.context_tags
     }
 
+    /// Return a reference to a project tag array
     pub fn get_project_tags(&self) -> &Vec<String> {
         &self.project_tags
     }
 
+    /// Get the due date of the task
     pub fn get_due(&self) -> &Option<NaiveDate> {
         &self.duedate
     }
 
+    /// Set the due date of a task
+    /// 
+    /// Change the due date of the task and store it in a custom tag
+    /// 
+    /// Arguments:
+    /// 
+    /// * `date` - a `Option<NaiveDate>` containing the date or None
     pub fn set_due(&mut self, date: Option<NaiveDate>) {
         self.duedate = date;
         match date {
@@ -121,6 +135,10 @@ impl Task {
         }
     }
 
+    /// Set the task as completed
+    /// 
+    /// Change the completion to `true` and store the actual date as completion date.
+    /// If there is no creation date for the task, it creates a creation date identical to the completion date
     pub fn set_completed(&mut self) {
         self.completion = true;
         let today = Local::now();
@@ -132,12 +150,17 @@ impl Task {
         }
     }
 
+    /// Set a task as to do
+    /// 
+    /// Change the completion status to `false` and remove the completion date
     pub fn set_not_completed(&mut self) {
         self.completion = false;
         self.completion_date = None;
     }
 
     /// Return a `String` representation of the task
+    /// 
+    /// Show the priority (optionnal), content and due date (optionnal)
     pub fn to_string(&self) -> String  {
         let mut s = String::new();
         if let Some(priority) = self.priority {
@@ -150,6 +173,7 @@ impl Task {
         s
     }
 
+    /// Show a complete description of the task
     pub fn recap_str(&self) -> String {
         let mut s = String::new();
         s.push_str(&format!("𝐓𝐚𝐬𝐤 : {}", self.get_content()));
@@ -179,6 +203,11 @@ impl Task {
         s
     }
 
+    /// Import a `String` containing a todo.txt representation of a task and return a new `Task`
+    /// 
+    /// Arguments:
+    /// 
+    /// * `todo` - a `String` with a task following todo.txt format
     pub fn from_todotxt(todo: String) -> Result<Self, String> {
         lazy_static! {
             static ref RE_TASK : Regex = Regex::new(r"^(?P<completion>x )?(\((?P<priority>[A-Z])\) )?(?P<compdate>\d{4}-\d{2}-\d{2} )?(?P<creadate>\d{4}-\d{2}-\d{2} )?(?P<content>.*)$").unwrap();
@@ -259,6 +288,7 @@ impl Task {
         Ok(task)
     }
 
+    /// Return the task in a todo.txt format `String`
     pub fn to_todotxt(&self) -> String {
         let mut s = String::new();
         if self.completion {
@@ -303,24 +333,40 @@ impl Task {
         tags
     }
 
-    /// Compare two `Task`s to sort them
+    /// Compare two `Task`s to sort them according to `sort` order
+    /// 
+    /// Arguments:
+    /// 
+    /// * `compare` - a task to compare
+    /// * `sort` - sort order
     pub fn comp(&self, compare: &Self, sort: &SortTaskBy) -> std::cmp::Ordering {
         match sort {
             SortTaskBy::Content => {self.comp_content(compare)},
             SortTaskBy::CreationDate => {self.comp_creation_date(compare)},
-            SortTaskBy::Priority =>{self.comp_priority(compare)}
+            SortTaskBy::Priority => {self.comp_priority(compare)},
+            SortTaskBy::DueDate => {self.comp_due_date(compare)}
         }
     }
 
+    /// Compare two `Task`s to sort them by priority
+    /// 
+    /// Arguments:
+    /// 
+    /// * `compare` - a task to compare
     pub fn comp_priority(&self, compare: &Self) -> std::cmp::Ordering {
         match (self.priority, compare.priority) {
-            (Some(p1), Some(p2)) => if p1 == p2 {self.comp_content(compare)} else if p1 < p2 {std::cmp::Ordering::Less} else {std::cmp::Ordering::Greater},
+            (Some(p1), Some(p2)) => if p1 == p2 {self.comp_due_date(compare)} else if p1 < p2 {std::cmp::Ordering::Less} else {std::cmp::Ordering::Greater},
             (Some(_), None) => std::cmp::Ordering::Less,
             (None, Some(_)) => std::cmp::Ordering::Greater,
-            (None, None) => self.comp_content(compare)
+            (None, None) => self.comp_due_date(compare)
         }
     }
 
+    /// Compare two `Task`s to sort them by creation date
+    /// 
+    /// Arguments:
+    /// 
+    /// * `compare` - a task to compare
     pub fn comp_creation_date(&self, compare: &Self) -> std::cmp::Ordering {
         match (self.creation_date, compare.creation_date) {
             (Some(d1), Some(d2)) => if d1 == d2 {self.comp_content(compare)} else if d1 < d2 {std::cmp::Ordering::Less} else {std::cmp::Ordering::Greater},
@@ -330,6 +376,26 @@ impl Task {
         }
     }
 
+    /// Compare two `Task`s to sort them by due date
+    /// 
+    /// Arguments:
+    /// 
+    /// * `compare` - a task to compare
+    pub fn comp_due_date(&self, compare: &Self) -> std::cmp::Ordering {
+        match (self.duedate, compare.duedate) {
+            (Some(d1), Some(d2)) => if d1 == d2 {self.comp_content(compare)} else if d1 < d2 {std::cmp::Ordering::Less} else {std::cmp::Ordering::Greater},
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => self.comp_content(compare)
+        }
+    }
+
+
+    // Compare two `Task`s to sort them by content
+    /// 
+    /// Arguments:
+    /// 
+    /// * `compare` - a task to compare
     pub fn comp_content(&self, compare: &Self) -> std::cmp::Ordering {
         if self.content == compare.content {
             std::cmp::Ordering::Equal
@@ -341,29 +407,48 @@ impl Task {
     }
 }
 
+
+/// A struct containing a vector of tasks and methods for sorting them
 pub struct TaskList {
+    /// A list of tasks
     content : Vec<Task>,
+    /// A sorting method
     sort : SortTaskBy
 }
 
 impl TaskList {
+    /// Create a new tasklist
     pub fn new() -> Self {
         TaskList { content : Vec::<Task>::new(), sort : SortTaskBy::CreationDate }
     }
 
+    /// Change the sorting order
+    /// 
+    /// Arguments:
+    /// 
+    /// * `new_sort` - a sorting order
     pub fn change_sort(&mut self, new_sort: SortTaskBy) {
         self.sort = new_sort;
         self.sort();
     }
 
+    /// Sort the tasks
     pub fn sort(&mut self) {
         match self.sort {
             SortTaskBy::Content => {self.content.sort_by(Task::comp_content)},
             SortTaskBy::CreationDate => {self.content.sort_by(Task::comp_creation_date)},
-            SortTaskBy::Priority =>{self.content.sort_by(Task::comp_priority)}
+            SortTaskBy::Priority => {self.content.sort_by(Task::comp_priority)},
+            SortTaskBy::DueDate => {self.content.sort_by(Task::comp_due_date)}
         }
     }
 
+    /// A binary search algorithm that return the index to insert a new task
+    /// 
+    /// Arguments:
+    /// 
+    /// * `tab` - the vector of task
+    /// * `t` - the new task
+    /// * `sort` - the sorting order
     fn binary_search(tab : &Vec<Task>, t: &Task, sort : &SortTaskBy) -> usize {
         let mut a : usize = 0;
         let mut b : usize = tab.len()-1;
@@ -384,10 +469,16 @@ impl TaskList {
         return a;
     }
 
+    /// Get a reference to the Vec of Task
     pub fn get_content(&self) -> &Vec<Task> {
         &self.content
     }
 
+    /// Add a task to the vec using a binary search
+    /// 
+    /// Arguments:
+    /// 
+    /// * `t` - the new task
     pub fn push(&mut self, t: Task) {
         if self.content.len() == 0 {
             self.content.push(t);
@@ -397,6 +488,11 @@ impl TaskList {
         self.content.insert(Self::binary_search(&self.content, &t, &self.sort), t);
     }
 
+    /// Remove a task from the list and return it
+    /// 
+    /// Arguments:
+    /// 
+    /// * `index` - the index of the task
     pub fn remove(&mut self, index: usize) -> Task {
         self.content.remove(index)
     }
@@ -430,6 +526,46 @@ mod task_tests {
         let t2 = Task::from_todotxt(String::from("another task")).unwrap();
         assert_eq!(t1.comp_creation_date(&t2), std::cmp::Ordering::Less);
         assert_eq!(t2.comp_creation_date(&t1), std::cmp::Ordering::Greater);
+    }
+
+    #[test]
+    fn comp_date_due() {
+        let t1 = Task::from_todotxt(String::from("a task due:2021-01-02")).unwrap();
+        let t2 = Task::from_todotxt(String::from("another task due:2021-01-01")).unwrap();
+        assert_eq!(t1.comp_due_date(&t2), std::cmp::Ordering::Greater);
+        assert_eq!(t2.comp_due_date(&t1), std::cmp::Ordering::Less);
+        let t3 = Task::from_todotxt(String::from("this is a task due:2021-01-01")).unwrap();
+        assert_eq!(t2.comp_due_date(&t3), std::cmp::Ordering::Less);
+    }
+
+
+    #[test]
+    fn completed() {
+        let mut t1 = Task::from_todotxt(String::from("a task")).unwrap();
+        t1.set_completed();
+        assert_eq!(t1.completion, true);
+        assert_eq!(t1.creation_date, t1.completion_date);
+
+        let mut t2 = Task::from_todotxt(String::from("2020-01-01 a task")).unwrap();
+        t2.set_completed();
+        assert_eq!(t2.completion, true);
+        assert_ne!(t2.creation_date, t2.completion_date);
+
+        let t3 = Task::from_todotxt(String::from("x a task")).unwrap();
+        assert_eq!(t3.completion, true);
+    }
+
+    #[test]
+    fn not_completed() {
+        let t1 = Task::from_todotxt(String::from("a task")).unwrap();
+        assert_eq!(t1.completion, false);
+
+        let mut t2 = Task::from_todotxt(String::from("2020-01-01 a task")).unwrap();
+        t2.set_completed();
+        assert_eq!(t2.completion, true);
+        t2.set_not_completed();
+        assert_eq!(t2.completion, false);
+        assert_eq!(t2.completion_date, None);
     }
 
     #[test]

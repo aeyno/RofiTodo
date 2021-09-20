@@ -21,7 +21,7 @@ struct Cli {
     #[structopt(short = "i", long = "case-insensitive")]
     case_insensitive: bool,
     /// How to sort the tasks
-    #[structopt(short = "s", long="sort", possible_values = &["creation","content","priority"], case_insensitive = true, default_value="content")]
+    #[structopt(short = "s", long="sort", possible_values = &["creation","content","priority","due"], case_insensitive = true, default_value="content")]
     sort : String
 }
 
@@ -50,7 +50,13 @@ fn show_task_menu(rofi_config : &RofiParams, todos : &mut TaskList, done: &mut T
             },
             "* cancel" => return MenuStatus::MAINMENU,
             "+ edit" => {
-                let task = Rofi::from(rofi_config).prompt("Task").placeholder("").text_only().run(vec![]).unwrap();
+                let task = Rofi::from(rofi_config)
+                            .prompt("Task")
+                            .placeholder("")
+                            .pretext(todos.get_content()[index].get_content().to_string())
+                            .text_only()
+                            .run(vec![])
+                            .unwrap();
                 if task.eq("") {
                     continue;
                 }
@@ -242,6 +248,7 @@ fn main() {
         "content" => SortTaskBy::Content,
         "creation" => SortTaskBy::CreationDate,
         "priority" => SortTaskBy::Priority,
+        "due" => SortTaskBy::DueDate,
         _ => SortTaskBy::Content
     };
     todos.change_sort(sort.clone());
