@@ -407,19 +407,22 @@ impl Task {
     }
 }
 
+type TagList = HashMap<String,Vec<usize>>;
 
 /// A struct containing a vector of tasks and methods for sorting them
 pub struct TaskList {
     /// A list of tasks
     content : Vec<Task>,
     /// A sorting method
-    sort : SortTaskBy
+    sort : SortTaskBy,
+    context_tags : TagList,
+    project_tags : TagList
 }
 
 impl TaskList {
     /// Create a new tasklist
     pub fn new() -> Self {
-        TaskList { content : Vec::<Task>::new(), sort : SortTaskBy::CreationDate }
+        TaskList { content : Vec::<Task>::new(), sort : SortTaskBy::CreationDate, context_tags: HashMap::new(), project_tags: HashMap::new() }
     }
 
     /// Change the sorting order
@@ -479,13 +482,15 @@ impl TaskList {
     /// Arguments:
     /// 
     /// * `t` - the new task
-    pub fn push(&mut self, t: Task) {
+    pub fn push(&mut self, t: Task) -> usize {
         if self.content.len() == 0 {
             self.content.push(t);
-            return;
+            return 0;
         }
         // We use binary search to improve the performances and sort the list while filling it
-        self.content.insert(Self::binary_search(&self.content, &t, &self.sort), t);
+        let index : usize = Self::binary_search(&self.content, &t, &self.sort);
+        self.content.insert(index, t);
+        return index;
     }
 
     /// Remove a task from the list and return it
@@ -497,7 +502,6 @@ impl TaskList {
         self.content.remove(index)
     }
 }
-
 
 
 #[cfg(test)]
