@@ -407,22 +407,18 @@ impl Task {
     }
 }
 
-type TagList = HashMap<String,Vec<usize>>;
-
 /// A struct containing a vector of tasks and methods for sorting them
 pub struct TaskList {
     /// A list of tasks
     content : Vec<Task>,
     /// A sorting method
-    sort : SortTaskBy,
-    context_tags : TagList,
-    project_tags : TagList
+    sort : SortTaskBy
 }
 
 impl TaskList {
     /// Create a new tasklist
     pub fn new() -> Self {
-        TaskList { content : Vec::<Task>::new(), sort : SortTaskBy::CreationDate, context_tags: HashMap::new(), project_tags: HashMap::new() }
+        TaskList { content : Vec::<Task>::new(), sort : SortTaskBy::CreationDate }
     }
 
     /// Change the sorting order
