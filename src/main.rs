@@ -1,13 +1,16 @@
 mod rofi;
 use rofi::{Rofi, RofiParams};
 mod task;
-use task::{Task, TaskList, SortTaskBy};
+use task::{Task, SortTaskBy};
 mod date_selector;
 use date_selector::date_selector;
 use std::fs;
 use std::io::{self, BufRead};
 use structopt::StructOpt;
 use chrono::{Local, NaiveDate, Datelike};
+mod indexer;
+use indexer::Indexer;
+use std::rc::Rc;
 
 #[derive(StructOpt)]
 struct Cli {
@@ -32,21 +35,21 @@ enum MenuStatus {
     BACK
 }
 
-fn show_task_menu(rofi_config : &RofiParams, todos : &mut TaskList, done: &mut TaskList, index: usize) -> MenuStatus {
-    let mut updated_index = index;
+fn show_task_menu(rofi_config : &RofiParams, params : &mut Params, task: Rc<Task>) -> MenuStatus {
+    let mut updated_task = task;
     loop {
         let mut menu =  vec![String::from("✔ mark as done"), String::from("+ edit"), String::from("+ change date")];
-        match todos.get_content().get(updated_index).unwrap().get_due() {
+        match updated_task.get_due() {
             Some(_) => menu.push(String::from("! remove date")),
             None => ()
         }
         menu.push(String::from("! remove"));
         menu.push(String::from("* cancel"));
-        match Rofi::from(rofi_config).msg(todos.get_content()[updated_index].recap_str()).select_range(0,menu.len()-1).prompt("Edit").run(menu).unwrap().as_ref() {
+        match Rofi::from(rofi_config).msg(updated_task.recap_str()).select_range(0,menu.len()-1).prompt("Edit").run(menu).unwrap().as_ref() {
             "✔ mark as done" => {
-                let mut t = todos.remove(updated_index);
+                let mut t = params.todos.remove(updated_task).expect("Some references to task were not deleted");
                 t.set_completed();
-                done.push(t);
+                add_task(&mut params.todos,t);
                 return MenuStatus::MAINMENU;
             },
             "* cancel" => return MenuStatus::MAINMENU,
@@ -54,41 +57,37 @@ fn show_task_menu(rofi_config : &RofiParams, todos : &mut TaskList, done: &mut T
                 let task = Rofi::from(rofi_config)
                             .prompt("Task")
                             .placeholder("")
-                            .pretext(todos.get_content()[updated_index].get_content().to_string())
+                            .pretext(updated_task.get_content().to_string())
                             .text_only()
                             .run(vec![])
                             .unwrap();
                 if task.eq("") {
                     continue;
                 }
-                let old_task = todos.remove(updated_index);
-                match old_task.get_due() {
-                    Some(date) => {
-                        updated_index = todos.push(Task::new_with_date(task, *date));
-                    },
-                    None => {updated_index = todos.push(Task::new(task));}
-                }
+                let mut old_task = params.todos.remove(updated_task).expect("Some references to task were not deleted");
+                old_task.set_content(task);
+                updated_task = add_task(&mut params.todos,old_task);
                 continue;
             },
             "+ change date" => {
                 let now = Local::now();
                 match date_selector(rofi_config, NaiveDate::from_ymd(now.year(), now.month(), now.day())) {
                     Some(date) => {
-                        let old_task = todos.remove(updated_index);
-                        updated_index = todos.push(Task::new_with_date(old_task.content, date));
+                        let old_task = params.todos.remove(updated_task).expect("Some references to task were not deleted");
+                        updated_task = add_task(&mut params.todos,Task::new_with_date(old_task.content, date));
                     },
                     None => ()
                 }
                 continue;
             },
             "! remove date" => {
-                let mut old_task = todos.remove(updated_index);
+                let mut old_task = params.todos.remove(updated_task).expect("Some references to task were not deleted");
                 old_task.set_due(None);
-                updated_index = todos.push(old_task);
+                updated_task = add_task(&mut params.todos,old_task);
                 continue;
             },
             "! remove" => {
-                todos.remove(updated_index);
+                params.todos.remove(updated_task);
                 return MenuStatus::MAINMENU;
             },
             _ => return MenuStatus::EXIT
@@ -96,19 +95,19 @@ fn show_task_menu(rofi_config : &RofiParams, todos : &mut TaskList, done: &mut T
     }
 }
 
-fn show_done_task_menu(rofi_config : &RofiParams, todos : &mut TaskList, done: &mut TaskList, index: usize) -> MenuStatus {
+fn show_done_task_menu(rofi_config : &RofiParams, params : &mut Params, task: Rc<Task>) -> MenuStatus {
     loop {
         let menu =  vec![String::from("✔ mark as to do"),String::from("! remove"),String::from("* cancel")];
-        match Rofi::from(rofi_config).msg(done.get_content()[index].recap_str()).select_range(0,menu.len()-1).prompt("Edit").run(menu).unwrap().as_ref() {
+        match Rofi::from(rofi_config).msg(task.recap_str()).select_range(0,menu.len()-1).prompt("Edit").run(menu).unwrap().as_ref() {
             "✔ mark as to do" => {
-                let mut t = done.remove(index);
+                let mut t = params.todos.remove(task).expect("Some references to task were not deleted");
                 t.set_not_completed();
-                todos.push(t);
+                add_task(&mut params.todos,t);
                 return MenuStatus::BACK;
             },
             "* cancel" => return MenuStatus::BACK,
             "! remove" => {
-                done.remove(index);
+                params.todos.remove(task);
                 return MenuStatus::BACK;
             },
             _ => return MenuStatus::EXIT
@@ -116,7 +115,7 @@ fn show_done_task_menu(rofi_config : &RofiParams, todos : &mut TaskList, done: &
     }
 }
 
-fn show_add_task(rofi_config : &RofiParams, todos : &mut TaskList) -> MenuStatus {
+fn show_add_task(rofi_config : &RofiParams, params : &mut Params) -> MenuStatus {
     let task = Rofi::from(rofi_config).prompt("Task").placeholder("").text_only().run(vec![]).unwrap();
     if task.eq("") {
         return MenuStatus::MAINMENU;
@@ -124,14 +123,14 @@ fn show_add_task(rofi_config : &RofiParams, todos : &mut TaskList) -> MenuStatus
     let menu =  vec![String::from("✔ validate"), String::from("+ add date"), String::from("* cancel")];
     match Rofi::from(rofi_config).prompt("Edit").select_range(0,menu.len()-1).run(menu).unwrap().as_ref() {
         "✔ validate" => {
-            todos.push(Task::new(task));
+            add_task(&mut params.todos,Task::new(task));
             MenuStatus::MAINMENU
         },
         "* cancel" => MenuStatus::MAINMENU,
         "+ add date" => {
             let now = Local::now();
             match date_selector(rofi_config, NaiveDate::from_ymd(now.year(), now.month(), now.day())) {
-                Some(date) => {todos.push(Task::new_with_date(task, date));},
+                Some(date) => {add_task(&mut params.todos,Task::new_with_date(task, date));},
                 None => ()
             }
             MenuStatus::MAINMENU
@@ -140,10 +139,10 @@ fn show_add_task(rofi_config : &RofiParams, todos : &mut TaskList) -> MenuStatus
     }
 }
 
-fn show_old_menu(rofi_config : &RofiParams, todos: &mut TaskList, done: &mut TaskList) -> MenuStatus {
+fn show_old_menu(rofi_config : &RofiParams, params : &mut Params) -> MenuStatus {
     loop {
         let mut choices =  vec![String::from("← back"), String::from("@ exit")];
-        for todo in done.get_content() {
+        for todo in params.todos.index(&String::from("done")).unwrap() {
             choices.push(todo.to_string());
         }
         match Rofi::from(rofi_config).prompt("Done").select_range(0,1).run(choices).unwrap().as_ref() {
@@ -151,11 +150,11 @@ fn show_old_menu(rofi_config : &RofiParams, todos: &mut TaskList, done: &mut Tas
             "@ exit" => return MenuStatus::EXIT,
             "" => return MenuStatus::EXIT,
             s => {
-                let index_result = done.get_content().iter().position(|x| x.to_string().eq(s));
-                if let None = index_result {
+                let result = params.todos.index(&String::from("done")).unwrap().into_iter().find(|x| x.to_string().eq(s));
+                if let None = result {
                     continue
                 }
-                match show_done_task_menu(rofi_config, todos, done, index_result.unwrap()) {
+                match show_done_task_menu(rofi_config, params, result.unwrap()) {
                     MenuStatus::BACK => continue,
                     MenuStatus::EXIT => return MenuStatus::EXIT,
                     MenuStatus::MAINMENU => return MenuStatus::MAINMENU
@@ -165,25 +164,25 @@ fn show_old_menu(rofi_config : &RofiParams, todos: &mut TaskList, done: &mut Tas
     }
 }
 
-fn show_main_menu(rofi_config : &RofiParams, todos : &mut TaskList, done: &mut TaskList) -> MenuStatus {
+fn show_main_menu(rofi_config : &RofiParams, params : &mut Params) -> MenuStatus {
     loop {
         let mut choices = vec![String::from("+ add"), String::from("~ done"), String::from("@ exit")];
-        for todo in todos.get_content() {
+        for todo in params.todos.index(&params.get_sort_string()).unwrap() {
             choices.push(todo.to_string());
         }
         let status : MenuStatus = match Rofi::from(rofi_config).prompt("Todo").select_range(0,2).run(choices).unwrap().as_ref() {
             "+ add" => {
-                show_add_task(rofi_config, todos)
+                show_add_task(rofi_config, params)
             },
             "~ done" => {
-                show_old_menu(rofi_config, todos, done)
+                show_old_menu(rofi_config, params)
             },
             "@ exit" => MenuStatus::EXIT,
             "" => MenuStatus::EXIT,
             s => {
-                let index = todos.get_content().iter().position(|x| x.to_string().eq(s));
-                match index {
-                    Some(i) => show_task_menu(rofi_config, todos, done, i),
+                let result = params.todos.index(&String::from("content")).unwrap().into_iter().find(|x| x.to_string().eq(s));
+                match result {
+                    Some(t) => show_task_menu(rofi_config, params, t),
                     None => MenuStatus::MAINMENU
                 }
             }
@@ -196,19 +195,16 @@ fn show_main_menu(rofi_config : &RofiParams, todos : &mut TaskList, done: &mut T
     }
 }
 
-fn load_config(config_file: &std::path::PathBuf, todos: &mut TaskList, old: &mut TaskList) -> Result<bool, String> {
+fn load_config(config_file: &std::path::PathBuf, todos: &mut Indexer<Task>) -> Result<bool, String> {
     if !std::path::Path::new(config_file).exists() {
-        save_config(config_file, &mut TaskList::new(), &mut TaskList::new()).unwrap();
+        save_config(config_file, todos).unwrap();
     }
     if let Ok(lines) = read_lines(config_file) {
         for line in lines {
             if let Ok(linestr) = line {
                 let task_result = Task::from_todotxt(String::from(linestr));
                 match task_result {
-                    Ok(task) => match task.completion {
-                        false =>  {todos.push(task);},
-                        true => {old.push(task);}
-                    }
+                    Ok(task) => {add_task(todos, task);}
                     Err(_) => ()
                 }
             }
@@ -222,13 +218,9 @@ fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<fs::File>>> 
     Ok(io::BufReader::new(file).lines())
 }
 
-fn save_config(config_file: &std::path::PathBuf, todos: &mut TaskList, old: &mut TaskList) -> Result<bool,String> {
+fn save_config(config_file: &std::path::PathBuf, todos: &mut Indexer<Task>) -> Result<bool,String> {
     let mut save = String::new();
-    for todo in todos.get_content() {
-        save.push_str(&todo.to_todotxt());
-        save.push_str("\n");
-    }
-    for todo in old.get_content() {
+    for todo in todos.get_main_index() {
         save.push_str(&todo.to_todotxt());
         save.push_str("\n");
     }
@@ -239,26 +231,65 @@ fn save_config(config_file: &std::path::PathBuf, todos: &mut TaskList, old: &mut
     }
 }
 
+fn add_task(idx: &mut Indexer<Task>, tsk: Task) -> Rc<Task> {
+    let tags = tsk.get_context_tags().clone();
+    for tag in tags {
+        let mut idx_name = String::from("tag_");
+        idx_name.push_str(&tag);
+        idx.new_index(idx_name, move |x|x.get_context_tags().contains(&tag), Task::comp_content);
+    }
+    idx.add(tsk)
+}
+
+
+struct Params {
+    sort : SortTaskBy,
+    todos : Indexer<Task>,
+}
+
+impl Params {
+    fn new(sort : SortTaskBy, idx : Indexer<Task>) -> Self {
+        Params { sort : sort, todos : idx }
+    }
+
+    fn get_sort_string(&self) -> String {
+        String::from(match self.sort {
+            SortTaskBy::Content         => "content",
+            SortTaskBy::CreationDate    => "creation",
+            SortTaskBy::Priority        => "priority",
+            SortTaskBy::DueDate         => "due"
+        })
+    }
+}
+
 fn main() {
-    let mut todos = TaskList::new();
-    let mut done = TaskList::new();
+    let mut todos = Indexer::<Task>::new();
 
     let args = Cli::from_args();
 
+    
+
     let sort  = match args.sort.as_ref() {
-        "content" => SortTaskBy::Content,
-        "creation" => SortTaskBy::CreationDate,
-        "priority" => SortTaskBy::Priority,
-        "due" => SortTaskBy::DueDate,
-        _ => SortTaskBy::Content
+        "content"   => SortTaskBy::Content,
+        "creation"  => SortTaskBy::CreationDate,
+        "priority"  => SortTaskBy::Priority,
+        "due"       => SortTaskBy::DueDate,
+        _           => SortTaskBy::Content
     };
-    todos.change_sort(sort.clone());
-    done.change_sort(sort);
+
+    
+
+    todos.new_index(String::from("content"),    |x|!x.completion, Task::comp_content);
+    todos.new_index(String::from("creation"),   |x|!x.completion, Task::comp_creation_date);
+    todos.new_index(String::from("priority"),   |x|!x.completion, Task::comp_priority);
+    todos.new_index(String::from("due"),        |x|!x.completion, Task::comp_due_date);
+    todos.new_index(String::from("done"),       |x|x.completion, Task::comp_content);
+
 
     let rofi_config = RofiParams { no_config : args.no_config, case_insensitive : args.case_insensitive };
 
     let config = args.config;
-    match load_config(&config, &mut todos, &mut done) {
+    match load_config(&config, &mut todos) {
         Ok(_) => (),
         Err(s) => {
             println!("{}", s);
@@ -266,11 +297,14 @@ fn main() {
         }
     };
 
+
+    let mut parameters = Params::new(sort, todos);
+
     loop {
-        if show_main_menu(&rofi_config, &mut todos, &mut done) == MenuStatus::EXIT { break }
+        if show_main_menu(&rofi_config, &mut parameters) == MenuStatus::EXIT { break }
     }
 
-    match save_config(&config, &mut todos, &mut done) {
+    match save_config(&config, &mut parameters.todos) {
         Ok(_) => (),
         Err(s) => println!("{}", s)
     };
