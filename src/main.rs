@@ -167,7 +167,12 @@ fn show_old_menu(rofi_config : &RofiParams, params : &mut Params) -> MenuStatus 
 fn show_tags_menu(rofi_config : &RofiParams, params : &mut Params, index_name: String) -> MenuStatus {
     loop {
         let mut choices = vec![String::from("← back")];
-        for todo in params.todos.index(&index_name).unwrap() {
+        // Exiting if the index was removed
+        let idx = match params.todos.index(&index_name) {
+            Some(index) => index,
+            None => return MenuStatus::BACK
+        };
+        for todo in idx {
             choices.push(todo.to_string());
         }
         let status : MenuStatus = match Rofi::from(rofi_config).prompt("Todo").select_range(0,0).run(choices).unwrap().as_ref() {
