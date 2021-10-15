@@ -83,6 +83,26 @@ impl<T : std::cmp::Ord> Indexer<T> {
         }
     }
 
+    /// Create a new index for the data which is automatically removed when empty
+    /// Sort all the existing data at the creation of the index
+    /// 
+    /// Arguments:
+    /// 
+    /// * `name` - the name of the new index
+    /// * `filter` - a closure to filter the elements (returns `true` if the value should be in the index)
+    pub fn new_autoremove_index(&mut self, name : String, filter : impl Fn(&T) -> bool + 'static, compare_fn : CompareFunction<T>) {
+        match self.get_index(&name) {
+            None => {
+                let mut new_idx = Index::new_autoremove(filter, compare_fn);
+                for x in &self.main_index {
+                    new_idx.register(Rc::clone(&x));
+                }
+                self.indexes.insert(name.clone(), new_idx);
+            },
+            _ => ()
+        }
+    }
+
     /// Remove an index
     /// 
     /// Arguments:
@@ -411,6 +431,30 @@ mod indexer_tests {
         id.add(String::from("hello"));
 
         id.remove_index(&idxname1);
+        assert!(id.index(&idxname1).is_none());
+        assert!(!id.index(&idxname2).is_none());
+        assert!(!id.index(&idxname2).unwrap().is_empty());
+    }
+
+    #[test]
+    fn auto_remove_indexes() {
+        let idxname1 = String::from("Alpha");
+        let idxname2 = String::from("AlphaRev");
+        let mut id = Indexer::<String>::new();
+        id.new_autoremove_index(idxname1.clone(), filt, lexicographic);
+        id.new_index(idxname2.clone(), filt, lexicographic);
+        id.add(String::from("foo"));
+        id.add(String::from("bar"));
+        id.add(String::from("baz"));
+
+        assert!(!id.index(&idxname1).is_none());
+        assert!(!id.index(&idxname2).is_none());
+
+        let elems = id.index(&idxname1).unwrap().into_iter().collect::<Vec<_>>();
+        for elem in elems {
+            id.remove(elem);
+        }
+
         assert!(id.index(&idxname1).is_none());
         assert!(!id.index(&idxname2).is_none());
     }

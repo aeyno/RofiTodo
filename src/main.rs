@@ -236,7 +236,7 @@ fn add_task(idx: &mut Indexer<Task>, tsk: Task) -> Rc<Task> {
     for tag in tags {
         let mut idx_name = String::from("tag_");
         idx_name.push_str(&tag);
-        idx.new_index(idx_name, move |x|x.get_context_tags().contains(&tag), Task::comp_content);
+        idx.new_autoremove_index(idx_name, move |x|x.get_context_tags().contains(&tag), Task::comp_content);
     }
     idx.add(tsk)
 }
