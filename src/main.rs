@@ -50,9 +50,9 @@ fn show_task_menu(rofi_config : &RofiParams, params : &mut Params, task: Rc<Task
                 let mut t = params.todos.remove(updated_task).expect("Some references to task were not deleted");
                 t.set_completed();
                 add_task(&mut params.todos,t);
-                return MenuStatus::MAINMENU;
+                return MenuStatus::BACK;
             },
-            "* cancel" => return MenuStatus::MAINMENU,
+            "* cancel" => return MenuStatus::BACK,
             "+ edit" => {
                 let task = Rofi::from(rofi_config)
                             .prompt("Task")
@@ -88,7 +88,7 @@ fn show_task_menu(rofi_config : &RofiParams, params : &mut Params, task: Rc<Task
             },
             "! remove" => {
                 params.todos.remove(updated_task);
-                return MenuStatus::MAINMENU;
+                return MenuStatus::BACK;
             },
             _ => return MenuStatus::EXIT
         }
@@ -141,13 +141,13 @@ fn show_add_task(rofi_config : &RofiParams, params : &mut Params) -> MenuStatus 
 
 fn show_old_menu(rofi_config : &RofiParams, params : &mut Params) -> MenuStatus {
     loop {
-        let mut choices =  vec![String::from("← back"), String::from("@ exit")];
+        let mut choices =  vec![String::from("← back"), String::from("* exit")];
         for todo in params.todos.index(&String::from("done")).unwrap() {
             choices.push(todo.to_string());
         }
         match Rofi::from(rofi_config).prompt("Done").select_range(0,1).run(choices).unwrap().as_ref() {
             "← back" => return MenuStatus::BACK,
-            "@ exit" => return MenuStatus::EXIT,
+            "* exit" => return MenuStatus::EXIT,
             "" => return MenuStatus::EXIT,
             s => {
                 let result = params.todos.index(&String::from("done")).unwrap().into_iter().find(|x| x.to_string().eq(s));
@@ -164,23 +164,86 @@ fn show_old_menu(rofi_config : &RofiParams, params : &mut Params) -> MenuStatus 
     }
 }
 
+fn show_tags_menu(rofi_config : &RofiParams, params : &mut Params, index_name: String) -> MenuStatus {
+    loop {
+        let mut choices = vec![String::from("← back")];
+        for todo in params.todos.index(&index_name).unwrap() {
+            choices.push(todo.to_string());
+        }
+        let status : MenuStatus = match Rofi::from(rofi_config).prompt("Todo").select_range(0,0).run(choices).unwrap().as_ref() {
+            "← back" => MenuStatus::MAINMENU,
+            "" => MenuStatus::EXIT,
+            s => {
+                let result = params.todos.index(&index_name).unwrap().into_iter().find(|x| x.to_string().eq(s));
+                match result {
+                    Some(t) => show_task_menu(rofi_config, params, t),
+                    None => MenuStatus::MAINMENU
+                }
+            }
+        };
+        match status {
+            MenuStatus::BACK => continue,
+            MenuStatus::EXIT => return MenuStatus::EXIT,
+            MenuStatus::MAINMENU => return MenuStatus::MAINMENU
+        }
+    }
+}
+
+fn show_tag_list(rofi_config : &RofiParams, params : &mut Params, tag_type: String) -> MenuStatus {
+    loop {
+        let mut choices = vec![String::from("← back")];
+        let tags = params.todos.get_index_list()
+                                .iter()
+                                .filter(|x|x.starts_with(&tag_type))
+                                .map(|x|{let mut s = String::from(*x); s.replace_range(0..tag_type.len(), ""); s})
+                                .collect::<Vec<String>>();
+        for tag in tags {
+            choices.push(tag.to_string());
+        }
+        let status : MenuStatus = match Rofi::from(rofi_config).prompt("Tag").select_range(0,0).run(choices).unwrap().as_ref() {
+            "← back" => MenuStatus::MAINMENU,
+            "" => MenuStatus::EXIT,
+            s => {
+                let mut idx_name = tag_type.to_string();
+                idx_name.push_str(s);
+                let result = params.todos.index(&idx_name);
+                match result {
+                    Some(_) => show_tags_menu(rofi_config, params, idx_name),
+                    None => MenuStatus::BACK
+                }
+            }
+        };
+        match status {
+            MenuStatus::BACK => continue,
+            MenuStatus::EXIT => return MenuStatus::EXIT,
+            MenuStatus::MAINMENU => return MenuStatus::MAINMENU
+        }
+    }
+}
+
 fn show_main_menu(rofi_config : &RofiParams, params : &mut Params) -> MenuStatus {
     loop {
-        let mut choices = vec![String::from("+ add"), String::from("~ done"), String::from("@ exit")];
+        let mut choices = vec![String::from("+ add"), String::from("~ done"), String::from("@ project tags"), String::from("@ context tags") , String::from("* exit")];
         for todo in params.todos.index(&params.get_sort_string()).unwrap() {
             choices.push(todo.to_string());
         }
-        let status : MenuStatus = match Rofi::from(rofi_config).prompt("Todo").select_range(0,2).run(choices).unwrap().as_ref() {
+        let status : MenuStatus = match Rofi::from(rofi_config).prompt("Todo").select_range(0,4).run(choices).unwrap().as_ref() {
             "+ add" => {
                 show_add_task(rofi_config, params)
             },
             "~ done" => {
                 show_old_menu(rofi_config, params)
             },
-            "@ exit" => MenuStatus::EXIT,
+            "@ project tags" => {
+                show_tag_list(rofi_config, params, String::from("project_"))
+            },
+            "@ context tags" => {
+                show_tag_list(rofi_config, params, String::from("context_"))
+            },
+            "* exit" => MenuStatus::EXIT,
             "" => MenuStatus::EXIT,
             s => {
-                let result = params.todos.index(&String::from("content")).unwrap().into_iter().find(|x| x.to_string().eq(s));
+                let result = params.todos.index(&params.get_sort_string()).unwrap().into_iter().find(|x| x.to_string().eq(s));
                 match result {
                     Some(t) => show_task_menu(rofi_config, params, t),
                     None => MenuStatus::MAINMENU
@@ -232,11 +295,15 @@ fn save_config(config_file: &std::path::PathBuf, todos: &mut Indexer<Task>) -> R
 }
 
 fn add_task(idx: &mut Indexer<Task>, tsk: Task) -> Rc<Task> {
-    let tags = tsk.get_context_tags().clone();
-    for tag in tags {
-        let mut idx_name = String::from("tag_");
+    for tag in tsk.get_context_tags().clone() {
+        let mut idx_name = String::from("context_");
         idx_name.push_str(&tag);
-        idx.new_autoremove_index(idx_name, move |x|x.get_context_tags().contains(&tag), Task::comp_content);
+        idx.new_autoremove_index(idx_name, move |x|!x.completion && x.get_context_tags().contains(&tag), Task::comp_content);
+    }
+    for tag in tsk.get_project_tags().clone() {
+        let mut idx_name = String::from("project_");
+        idx_name.push_str(&tag);
+        idx.new_autoremove_index(idx_name, move |x|!x.completion && x.get_project_tags().contains(&tag), Task::comp_content);
     }
     idx.add(tsk)
 }
@@ -267,8 +334,6 @@ fn main() {
 
     let args = Cli::from_args();
 
-    
-
     let sort  = match args.sort.as_ref() {
         "content"   => SortTaskBy::Content,
         "creation"  => SortTaskBy::CreationDate,
@@ -277,17 +342,13 @@ fn main() {
         _           => SortTaskBy::Content
     };
 
-    
-
     todos.new_index(String::from("content"),    |x|!x.completion, Task::comp_content);
     todos.new_index(String::from("creation"),   |x|!x.completion, Task::comp_creation_date);
     todos.new_index(String::from("priority"),   |x|!x.completion, Task::comp_priority);
     todos.new_index(String::from("due"),        |x|!x.completion, Task::comp_due_date);
     todos.new_index(String::from("done"),       |x|x.completion, Task::comp_content);
 
-
     let rofi_config = RofiParams { no_config : args.no_config, case_insensitive : args.case_insensitive };
-
     let config = args.config;
     match load_config(&config, &mut todos) {
         Ok(_) => (),
@@ -296,7 +357,6 @@ fn main() {
             return;
         }
     };
-
 
     let mut parameters = Params::new(sort, todos);
 

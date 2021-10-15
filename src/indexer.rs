@@ -14,7 +14,6 @@ pub struct Indexer<T> {
 }
 
 impl<T : std::cmp::Ord> Indexer<T> {
-
     /// Create new Indexer
     pub fn new() -> Self {
         Indexer { main_index : BTreeSet::<Rc<T>>::new() , indexes : HashMap::<String,Index<T>>::new() }
@@ -131,6 +130,10 @@ impl<T : std::cmp::Ord> Indexer<T> {
     /// * `name` - the name of the index
     pub fn index(&self, name : &String) -> Option<&Index<T>> {
         self.indexes.get(name)
+    }
+
+    pub fn get_index_list(&self) -> Vec<&String> {
+        self.indexes.iter().map(|t|t.0).collect::<Vec<_>>()
     }
 }
 
