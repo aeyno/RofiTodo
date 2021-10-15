@@ -295,15 +295,17 @@ fn save_config(config_file: &std::path::PathBuf, todos: &mut Indexer<Task>) -> R
 }
 
 fn add_task(idx: &mut Indexer<Task>, tsk: Task) -> Rc<Task> {
-    for tag in tsk.get_context_tags().clone() {
-        let mut idx_name = String::from("context_");
-        idx_name.push_str(&tag);
-        idx.new_autoremove_index(idx_name, move |x|!x.completion && x.get_context_tags().contains(&tag), Task::comp_content);
-    }
-    for tag in tsk.get_project_tags().clone() {
-        let mut idx_name = String::from("project_");
-        idx_name.push_str(&tag);
-        idx.new_autoremove_index(idx_name, move |x|!x.completion && x.get_project_tags().contains(&tag), Task::comp_content);
+    if !tsk.completion {
+        for tag in tsk.get_context_tags().clone() {
+            let mut idx_name = String::from("context_");
+            idx_name.push_str(&tag);
+            idx.new_autoremove_index(idx_name, move |x|!x.completion && x.get_context_tags().contains(&tag), Task::comp_content);
+        }
+        for tag in tsk.get_project_tags().clone() {
+            let mut idx_name = String::from("project_");
+            idx_name.push_str(&tag);
+            idx.new_autoremove_index(idx_name, move |x|!x.completion && x.get_project_tags().contains(&tag), Task::comp_content);
+        }
     }
     idx.add(tsk)
 }
