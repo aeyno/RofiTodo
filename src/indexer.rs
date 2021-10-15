@@ -266,6 +266,78 @@ impl<T> PartialEq for ElementWrapper<T> {
 impl<T> Eq for ElementWrapper<T> { }
 
 #[cfg(test)]
+mod index_tests {
+    use super::*;
+
+    #[test]
+    fn create_index() {
+        let idx = Index::<String>::new(|_|true, String::cmp);
+        assert_eq!(idx.is_empty(), true);
+        assert_eq!(idx.remove_if_empty(), false);
+    }
+    
+    #[test]
+    fn create_remove_if_empty_index() {
+        let idx = Index::<String>::new_autoremove(|_|true, String::cmp);
+        assert_eq!(idx.is_empty(), true);
+        assert_eq!(idx.remove_if_empty(), true);
+    }
+
+    #[test]
+    fn indexing_elements() {
+        let mut idx = Index::<String>::new_autoremove(|_|true, String::cmp);
+        let foo = Rc::new(String::from("Foo"));
+        let bar = Rc::new(String::from("Bar"));
+        let baz = Rc::new(String::from("Baz"));
+        idx.register(Rc::clone(&foo));
+        idx.register(Rc::clone(&bar));
+        idx.register(Rc::clone(&baz));
+
+        let data = idx.into_iter().collect::<Vec<_>>();
+        assert_eq!(data[0], bar);
+        assert_eq!(data[1], baz);
+        assert_eq!(data[2], foo);
+        assert_eq!(idx.is_empty(), false);
+    }
+
+    #[test]
+    fn iter_dont_consume() {
+        let mut idx = Index::<String>::new_autoremove(|_|true, String::cmp);
+        let foo = Rc::new(String::from("Foo"));
+        let bar = Rc::new(String::from("Bar"));
+        let baz = Rc::new(String::from("Baz"));
+        idx.register(Rc::clone(&foo));
+        idx.register(Rc::clone(&bar));
+        idx.register(Rc::clone(&baz));
+
+        // We can iterate twice on the elements without consuming the Index
+        let _data1 = idx.into_iter().collect::<Vec<_>>();
+        let _data2 = idx.into_iter().collect::<Vec<_>>();
+    }
+
+    #[test]
+    fn remove_elements() {
+        let mut idx = Index::<String>::new_autoremove(|_|true, String::cmp);
+        let foo = Rc::new(String::from("Foo"));
+        let bar = Rc::new(String::from("Bar"));
+        let baz = Rc::new(String::from("Baz"));
+        idx.register(Rc::clone(&foo));
+        idx.register(Rc::clone(&bar));
+        idx.register(Rc::clone(&baz));
+
+        let data = idx.into_iter().collect::<Vec<_>>();
+        
+        assert!(!idx.is_empty());
+
+        idx.remove(&data[0]);
+        idx.remove(&data[2]);
+        idx.remove(&data[1]);
+
+        assert!(idx.is_empty());
+    }
+}
+
+#[cfg(test)]
 mod indexer_tests {
     use super::*;
 
@@ -342,6 +414,7 @@ mod indexer_tests {
         assert!(id.index(&idxname1).is_none());
         assert!(!id.index(&idxname2).is_none());
     }
+
     #[test]
     fn testing_iterator() {
         let idxname = String::from("Alpha");
