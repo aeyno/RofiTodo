@@ -1,6 +1,6 @@
 [package]
 name = "rofitodo"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -16,3 +16,4 @@ structopt = "0.3.23"
 home = "0.5.3"
 regex = "1.5.4"
 lazy_static = "1.4.0"
+cargo-strip = "0.2.3"

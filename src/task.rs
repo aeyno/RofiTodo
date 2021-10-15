@@ -339,7 +339,7 @@ impl Task {
     /// 
     /// * `compare` - a task to compare
     /// * `sort` - sort order
-    pub fn comp(&self, compare: &Self, sort: &SortTaskBy) -> std::cmp::Ordering {
+    pub fn _comp(&self, compare: &Self, sort: &SortTaskBy) -> std::cmp::Ordering {
         match sort {
             SortTaskBy::Content => {self.comp_content(compare)},
             SortTaskBy::CreationDate => {self.comp_creation_date(compare)},
@@ -407,96 +407,25 @@ impl Task {
     }
 }
 
-
-/// A struct containing a vector of tasks and methods for sorting them
-pub struct TaskList {
-    /// A list of tasks
-    content : Vec<Task>,
-    /// A sorting method
-    sort : SortTaskBy
-}
-
-impl TaskList {
-    /// Create a new tasklist
-    pub fn new() -> Self {
-        TaskList { content : Vec::<Task>::new(), sort : SortTaskBy::CreationDate }
-    }
-
-    /// Change the sorting order
-    /// 
-    /// Arguments:
-    /// 
-    /// * `new_sort` - a sorting order
-    pub fn change_sort(&mut self, new_sort: SortTaskBy) {
-        self.sort = new_sort;
-        self.sort();
-    }
-
-    /// Sort the tasks
-    pub fn sort(&mut self) {
-        match self.sort {
-            SortTaskBy::Content => {self.content.sort_by(Task::comp_content)},
-            SortTaskBy::CreationDate => {self.content.sort_by(Task::comp_creation_date)},
-            SortTaskBy::Priority => {self.content.sort_by(Task::comp_priority)},
-            SortTaskBy::DueDate => {self.content.sort_by(Task::comp_due_date)}
-        }
-    }
-
-    /// A binary search algorithm that return the index to insert a new task
-    /// 
-    /// Arguments:
-    /// 
-    /// * `tab` - the vector of task
-    /// * `t` - the new task
-    /// * `sort` - the sorting order
-    fn binary_search(tab : &Vec<Task>, t: &Task, sort : &SortTaskBy) -> usize {
-        let mut a : usize = 0;
-        let mut b : usize = tab.len()-1;
-        let mut m : usize;
-        while a <= b {
-            m  = (a+b)/2;
-            match t.comp(&tab[m], &sort) {
-                std::cmp::Ordering::Greater => a = m+1,
-                std::cmp::Ordering::Less => {
-                    if m==0 { return a }
-                    b = m-1;
-                },
-                std::cmp::Ordering::Equal => {
-                    return m+1
-                }, 
-            }
-        }
-        return a;
-    }
-
-    /// Get a reference to the Vec of Task
-    pub fn get_content(&self) -> &Vec<Task> {
-        &self.content
-    }
-
-    /// Add a task to the vec using a binary search
-    /// 
-    /// Arguments:
-    /// 
-    /// * `t` - the new task
-    pub fn push(&mut self, t: Task) {
-        if self.content.len() == 0 {
-            self.content.push(t);
-            return;
-        }
-        // We use binary search to improve the performances and sort the list while filling it
-        self.content.insert(Self::binary_search(&self.content, &t, &self.sort), t);
-    }
-
-    /// Remove a task from the list and return it
-    /// 
-    /// Arguments:
-    /// 
-    /// * `index` - the index of the task
-    pub fn remove(&mut self, index: usize) -> Task {
-        self.content.remove(index)
+impl Ord for Task {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.comp_content(other)
     }
 }
+
+impl PartialOrd for Task {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.comp_content(other))
+    }
+}
+
+impl PartialEq for Task {
+    fn eq(&self, other: &Self) -> bool {
+        self.comp_content(other) == std::cmp::Ordering::Equal
+    }
+}
+
+impl Eq for Task { }
 
 
 
@@ -605,41 +534,5 @@ mod task_tests {
         assert_eq!(t4.priority, None);
         assert_eq!(*t4.get_context_tags(), vec!["GroceryStore"]);
         assert_eq!(*t4.get_project_tags(), Vec::<String>::new());
-    }
-}
-
-#[cfg(test)]
-mod tasklist_tests {
-    use super::*;
-
-    #[test]
-    fn push() {
-        let mut tl = TaskList::new();
-        let t1 = Task::new(String::from("a"));
-        let t2 = Task::new(String::from("c"));
-        let t3 = Task::new(String::from("b"));
-        tl.push(t1.clone());
-        tl.push(t2.clone());
-        tl.push(t3.clone());
-        assert_eq!(tl.get_content()[0].content, t1.content);
-        assert_eq!(tl.get_content()[1].content, t3.content);
-        assert_eq!(tl.get_content()[2].content, t2.content);
-    }
-
-    #[test]
-    fn push_and_remove() {
-        let mut tl = TaskList::new();
-        let t1 = Task::new(String::from("a"));
-        let t2 = Task::new(String::from("c"));
-        let t3 = Task::new(String::from("b"));
-        let t4 = Task::new(String::from("d"));
-        tl.push(t1.clone());
-        tl.push(t2.clone());
-        tl.push(t3.clone());
-        tl.remove(2);
-        tl.push(t4.clone());
-        assert_eq!(tl.get_content()[0].content, t1.content);
-        assert_eq!(tl.get_content()[1].content, t3.content);
-        assert_eq!(tl.get_content()[2].content, t4.content);
     }
 }

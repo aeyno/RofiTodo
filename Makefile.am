@@ -13,6 +13,7 @@ target_@CARGO_TARGET_DIR@_rofitodo_SOURCES =
 
 all-local:
 	cargo build --release
+	cargo strip
 
 clean-local:
 	-cargo clean
