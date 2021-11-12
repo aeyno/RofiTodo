@@ -38,13 +38,12 @@ enum MenuStatus {
 fn show_task_menu(rofi_config : &RofiParams, params : &mut Params, task: Rc<Task>) -> MenuStatus {
     let mut updated_task = task;
     loop {
-        let mut menu =  vec![String::from("✔ mark as done"), String::from("+ edit"), String::from("+ change date")];
+        let mut menu =  vec![String::from("✔ mark as done"), String::from("* cancel"), String::from("+ edit"), String::from("+ change date"), String::from("+ change priority")];
         match updated_task.get_due() {
             Some(_) => menu.push(String::from("! remove date")),
             None => ()
         }
         menu.push(String::from("! remove"));
-        menu.push(String::from("* cancel"));
         match Rofi::from(rofi_config).msg(updated_task.recap_str()).select_range(0,menu.len()-1).prompt("Edit").run(menu).unwrap().as_ref() {
             "✔ mark as done" => {
                 let mut t = params.todos.remove(updated_task).expect("Some references to task were not deleted");
@@ -73,8 +72,20 @@ fn show_task_menu(rofi_config : &RofiParams, params : &mut Params, task: Rc<Task
                 let now = Local::now();
                 match date_selector(rofi_config, NaiveDate::from_ymd(now.year(), now.month(), now.day())) {
                     Some(date) => {
-                        let old_task = params.todos.remove(updated_task).expect("Some references to task were not deleted");
-                        updated_task = add_task(&mut params.todos,Task::new_with_date(old_task.content, date));
+                        let mut old_task = params.todos.remove(updated_task).expect("Some references to task were not deleted");
+                        old_task.set_due(Some(date));
+                        updated_task = add_task(&mut params.todos,old_task);
+                    },
+                    None => ()
+                }
+                continue;
+            },
+            "+ change priority" => {
+                match priority_selector(rofi_config) {
+                    Some(priority) => {
+                        let mut old_task = params.todos.remove(updated_task).expect("Some references to task were not deleted");
+                        old_task.priority = priority.chars().nth(0);
+                        updated_task = add_task(&mut params.todos,old_task);
                     },
                     None => ()
                 }
@@ -90,10 +101,24 @@ fn show_task_menu(rofi_config : &RofiParams, params : &mut Params, task: Rc<Task
                 params.todos.remove(updated_task);
                 return MenuStatus::BACK;
             },
-            _ => return MenuStatus::EXIT
+            _ => return MenuStatus::BACK
         }
     }
 }
+
+fn priority_selector(rofi_config : &RofiParams) -> Option<String> {
+    let alpha = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".chars();
+    let priority_list : Vec<String> = alpha.map(|x| x.to_string()).collect();
+    loop {
+        let selected_priority = Rofi::from(rofi_config).prompt("Year").run(priority_list.clone()).unwrap();
+        if priority_list.contains(&selected_priority) {
+            return Some(selected_priority);
+        } else if selected_priority.eq("") {
+            return None;
+        }
+    }
+}
+
 
 fn show_done_task_menu(rofi_config : &RofiParams, params : &mut Params, task: Rc<Task>) -> MenuStatus {
     loop {
